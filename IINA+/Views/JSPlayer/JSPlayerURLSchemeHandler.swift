@@ -73,7 +73,7 @@ class JSPlayerURLSchemeHandler: NSObject, WKURLSchemeHandler {
 	}
 }
 
-extension JSPlayerURLSchemeHandler: URLSessionDelegate, @preconcurrency URLSessionDataDelegate {
+extension JSPlayerURLSchemeHandler: @preconcurrency URLSessionDelegate, @preconcurrency URLSessionDataDelegate {
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse) async -> URLSession.ResponseDisposition {
         
         guard let schemeTask = map[dataTask] else {

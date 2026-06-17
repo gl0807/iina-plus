@@ -10,7 +10,7 @@ import Cocoa
 import CoreData
 import Alamofire
 import SDWebImage
-@preconcurrency import WebKit
+import WebKit
 
 private extension NSPasteboard.PasteboardType {
     static let bookmarkRow = NSPasteboard.PasteboardType("bookmark.Row")

@@ -8,7 +8,7 @@
 
 import Cocoa
 import SDWebImage
-@preconcurrency import Sparkle
+import Sparkle
 
 @main
 class AppDelegate: NSObject, NSApplicationDelegate {

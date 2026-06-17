@@ -10,7 +10,7 @@ import Cocoa
 import Alamofire
 import Marshal
 import CommonCrypto
-@preconcurrency import JavaScriptCore
+import JavaScriptCore
 import SwiftSoup
 
 actor VideoDecoder {
