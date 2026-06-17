@@ -100,7 +100,7 @@ actor WebSocketSession {
 }
 
 @MainActor
-final class DanmakuSessionManager: DanmakuDelegate, DanmakuWSDelegate, @unchecked Sendable {
+final class DanmakuSessionManager: DanmakuDelegate, DanmakuWSDelegate {
     private var connectedItems = [DanmakuWS]()
     private var danmakus = [Danmaku]()
     private var sessions: [String: WebSocketSession] = [:]
@@ -216,6 +216,6 @@ final class DanmakuSessionManager: DanmakuDelegate, DanmakuWSDelegate, @unchecke
         d.id = ws.url
         d.delegate = self
         danmakus.append(d)
-        d.loadDM()
+        Task { await d.loadDM() }
     }
 }
