@@ -46,6 +46,7 @@
     },
     "Danmaku plugin Install Alert informativeText" : {
       "comment" : "Click OK for detailed installation guide.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -63,6 +64,7 @@
     },
     "Danmaku plugin Install Alert messageText" : {
       "comment" : "You need to install the Danmaku plugin for IINA",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
