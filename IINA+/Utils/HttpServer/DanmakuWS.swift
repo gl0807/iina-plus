@@ -78,7 +78,7 @@ struct DanmakuWS {
             }
             
             if !str.contains("sendDM") {
-                Log("WriteText to \(id): \(str)")
+                Log("WriteText to [\(id)] \(str)")
             }
         }
     }

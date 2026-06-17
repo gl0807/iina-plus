@@ -118,7 +118,7 @@ class Danmaku: NSObject {
 	}
 	
     
-    func loadDanmaku() async throws {
+	func loadDanmaku() async throws {
         guard let url = URL(string: self.url) else { return }
         let roomID = url.lastPathComponent
         let videoDecoder = Processes.shared.videoDecoder
@@ -163,12 +163,12 @@ class Danmaku: NSObject {
 				runEventLoop(ws, url: self.huyaServer!)
 			}
 
+		case .douyin:
 		await MainActor.run {
 			douyinDM = .init()
-			douyinDM?.requestPrepared = { ur in
-				guard let url = ur.url else { return }
+			douyinDM?.requestPrepared = { request in
 				let ws = WebSocketClient()
-				self.runEventLoop(ws, url: url)
+				self.runEventLoop(ws, request: request)
 			}
 			douyinDM?.start(self.url)
 			socketClosed = false
@@ -245,7 +245,9 @@ class Danmaku: NSObject {
                     default:
                         try await self.socket?.sendPing()
                     }
-                    await self.incrementHeartbeat()
+                    if liveSite != .douyin {
+                        await self.incrementHeartbeat()
+                    }
                 } catch {
                     if (error as NSError).code == 2134 {
                         Log("Danmaku Error 2134, restart.")
@@ -277,11 +279,15 @@ class Danmaku: NSObject {
 
 	@MainActor
 	private func runEventLoop(_ ws: WebSocketClient, url: URL) {
+		var request = URLRequest(url: url)
+		request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3.1 Safari/605.1.15", forHTTPHeaderField: "User-Agent")
+		runEventLoop(ws, request: request)
+	}
+
+	@MainActor
+	private func runEventLoop(_ ws: WebSocketClient, request: URLRequest) {
 		socket = ws
 		Task { @MainActor in
-			var request = URLRequest(url: url)
-			request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3.1 Safari/605.1.15", forHTTPHeaderField: "User-Agent")
-
 			for await event in await ws.open(request) {
 				switch event {
 				case .didOpen:
