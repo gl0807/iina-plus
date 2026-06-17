@@ -8,75 +8,126 @@
 
 
 import Foundation
-@preconcurrency import NIO
-@preconcurrency import NIOHTTP1
-@preconcurrency import NIOWebSocket
+import NIO
+import NIOHTTP1
+import NIOWebSocket
 
-
-actor NIOHTTPServer {
-    func start() {
-        Task(priority: .background) {
-            do {
-                try setupServer()
-            } catch {
-                Log("Start NIOHTTPServer failed: \(error)")
-            }
-        }
-    }
-
-    func setupServer() throws {
-        let upgrader = NIOWebSocketServerUpgrader(
-            shouldUpgrade: { channel, head in
-                channel.eventLoop.makeSucceededFuture(HTTPHeaders())
-            },
-            upgradePipelineHandler: { channel, _ in
-                channel.pipeline.addHandler(DanmakuWebSocketHandler())
-            })
-        
-        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        
-        let bootstrap = ServerBootstrap(group: group)
-        // Specify backlog and enable SO_REUSEADDR for the server itself
-            .serverChannelOption(ChannelOptions.backlog, value: 256)
-            .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
-        
-        // Set the handlers that are applied to the accepted Channels
-            .childChannelInitializer { channel in
-                let httpHandler = HTTPHandler()
-                let config: NIOHTTPServerUpgradeConfiguration = (
-                    upgraders: [ upgrader ],
-                    completionHandler: { _ in
-                        channel.pipeline.removeHandler(httpHandler, promise: nil)
-                    }
-                )
-                return channel.pipeline.configureHTTPServerPipeline(withServerUpgrade: config).flatMap {
-                    channel.pipeline.addHandler(httpHandler)
-                }
-            }
-        
-        // Enable SO_REUSEADDR for the accepted Channels
-            .childChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
-        
-        defer {
-            try? group.syncShutdownGracefully()
-        }
-        
-        let port = Preferences.shared.dmPort
-        
-        let channel = try bootstrap.bind(host: "127.0.0.1", port: port).wait()
-        
-        guard let localAddress = channel.localAddress else {
-#warning("post notification")
-            Log("Address was unable to bind. Please check that the socket was not closed or that the address family was understood.")
-            return
-        }
-        Log("Server started and listening on \(localAddress)")
-        
-        // This will never unblock as we don't close the ServerChannel
-        try channel.closeFuture.wait()
-        
-        Log("Server closed")
-    }
-    
+enum UpgradeResult {
+    case websocket(NIOAsyncChannel<WebSocketFrame, WebSocketFrame>)
+    case notUpgraded(NIOAsyncChannel<HTTPServerRequestPart, HTTPPart<HTTPResponseHead, ByteBuffer>>)
 }
 
+final class HTTPByteBufferResponsePartHandler: ChannelOutboundHandler {
+    typealias OutboundIn = HTTPPart<HTTPResponseHead, ByteBuffer>
+    typealias OutboundOut = HTTPServerResponsePart
+
+    func write(context: ChannelHandlerContext, data: NIOAny, promise: EventLoopPromise<Void>?) {
+        let part = Self.unwrapOutboundIn(data)
+        switch part {
+        case .head(let head):
+            context.write(Self.wrapOutboundOut(.head(head)), promise: promise)
+        case .body(let buffer):
+            context.write(Self.wrapOutboundOut(.body(.byteBuffer(buffer))), promise: promise)
+        case .end(let trailers):
+            context.write(Self.wrapOutboundOut(.end(trailers)), promise: promise)
+        }
+    }
+}
+
+actor NIOHTTPServer {
+    private var serverChannel: Channel?
+    private let group = MultiThreadedEventLoopGroup.singleton
+
+    func start() async {
+        do {
+            try await setupServer()
+        } catch {
+            Log("NIOHTTPServer start failed: \(error)")
+        }
+    }
+
+    func stop() {
+        Log("NIOHTTPServer stopping")
+        serverChannel?.close(mode: .all, promise: nil)
+        serverChannel = nil
+    }
+
+    private func setupServer() async throws {
+        let manager = await MainActor.run { DanmakuSessionManager() }
+
+        let channel: NIOAsyncChannel<EventLoopFuture<UpgradeResult>, Never> = try await ServerBootstrap(group: group)
+            .serverChannelOption(ChannelOptions.backlog, value: 256)
+            .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
+            .bind(host: "127.0.0.1", port: Preferences.shared.dmPort) { channel in
+                channel.eventLoop.makeCompletedFuture {
+                    let upgrader = NIOTypedWebSocketServerUpgrader<UpgradeResult>(
+                        shouldUpgrade: { channel, head in
+                            channel.eventLoop.makeSucceededFuture(HTTPHeaders())
+                        },
+                        upgradePipelineHandler: { channel, _ in
+                            channel.eventLoop.makeCompletedFuture {
+                                let asyncChannel = try NIOAsyncChannel<WebSocketFrame, WebSocketFrame>(
+                                    wrappingChannelSynchronously: channel
+                                )
+                                return UpgradeResult.websocket(asyncChannel)
+                            }
+                        }
+                    )
+
+                    let config = NIOTypedHTTPServerUpgradeConfiguration(
+                        upgraders: [upgrader],
+                        notUpgradingCompletionHandler: { channel in
+                            channel.eventLoop.makeCompletedFuture {
+                                try channel.pipeline.syncOperations.addHandler(HTTPByteBufferResponsePartHandler())
+                                let asyncChannel = try NIOAsyncChannel<
+                                    HTTPServerRequestPart, HTTPPart<HTTPResponseHead, ByteBuffer>
+                                >(wrappingChannelSynchronously: channel)
+                                return UpgradeResult.notUpgraded(asyncChannel)
+                            }
+                        }
+                    )
+
+                    return try channel.pipeline.syncOperations.configureUpgradableHTTPServerPipeline(
+                        configuration: .init(upgradeConfiguration: config)
+                    )
+                }
+            }
+
+        self.serverChannel = channel.channel
+
+        guard let localAddress = channel.channel.localAddress else {
+            Log("NIOHTTPServer address was unable to bind")
+            return
+        }
+        Log("NIOHTTPServer started on \(localAddress)")
+
+        try await channel.executeThenClose { inbound, _ in
+            for try await upgradeResult in inbound {
+                Task {
+                    await self.handleConnection(upgradeResult, manager: manager)
+                }
+            }
+        }
+
+        Log("NIOHTTPServer closed")
+    }
+
+    private func handleConnection(
+        _ upgradeResult: EventLoopFuture<UpgradeResult>,
+        manager: DanmakuSessionManager
+    ) async {
+        do {
+            switch try await upgradeResult.get() {
+            case .websocket(let wsChannel):
+                Log("NIOHTTPServer accepting websocket connection")
+                let session = WebSocketSession(asyncChannel: wsChannel, manager: manager)
+                await session.handle()
+            case .notUpgraded(let httpChannel):
+                Log("NIOHTTPServer accepting http connection")
+                try await HTTPHandler.handleChannel(httpChannel)
+            }
+        } catch {
+            Log("NIOHTTPServer connection error: \(error)")
+        }
+    }
+}
