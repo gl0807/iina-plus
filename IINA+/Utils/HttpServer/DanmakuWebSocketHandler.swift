@@ -7,170 +7,146 @@
 //
 
 import Foundation
-@preconcurrency import NIO
-@preconcurrency import NIOHTTP1
-@preconcurrency import NIOWebSocket
+import NIO
+import NIOWebSocket
 
+actor WebSocketSession {
+    private let asyncChannel: NIOAsyncChannel<WebSocketFrame, WebSocketFrame>
+    private var outboundWriter: NIOAsyncChannelOutboundWriter<WebSocketFrame>?
+    private var awaitingClose = false
+    let contextName: String
+    private let manager: DanmakuSessionManager
 
-@preconcurrency
-final class DanmakuWebSocketHandler: ChannelInboundHandler {
-    typealias InboundIn = WebSocketFrame
-    typealias OutboundOut = WebSocketFrame
-    
-    private var awaitingClose: Bool = false
-    
-    
-    private var contextList = [ChannelHandlerContext]()
-    private var connectedItems = [DanmakuWS]()
-    private var danmakus = [Danmaku]()
-    
-    
-    public func handlerAdded(context: ChannelHandlerContext) {
-        websocketConnected(context)
+    init(
+        asyncChannel: NIOAsyncChannel<WebSocketFrame, WebSocketFrame>,
+        manager: DanmakuSessionManager
+    ) {
+        self.asyncChannel = asyncChannel
+        self.contextName = UUID().uuidString
+        self.manager = manager
     }
-    
-    public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        let frame = self.unwrapInboundIn(data)
-        
-        switch frame.opcode {
-        case .connectionClose:
-            self.receivedClose(context: context, frame: frame)
-        case .ping:
-            self.pong(context: context, frame: frame)
-        case .text:
-            var data = frame.unmaskedData
-            let text = data.readString(length: data.readableBytes) ?? ""
-            Task {
-                await websocketReceived(context, text: text)
+
+    func handle() async {
+        Log("Websocket client connected. \(contextName)")
+        await manager.sessionStarted(self)
+
+        do {
+            try await asyncChannel.executeThenClose { inbound, outbound in
+                self.outboundWriter = outbound
+
+                for try await frame in inbound {
+                    switch frame.opcode {
+                    case .connectionClose:
+                        await self.receivedClose(frame: frame)
+                        return
+                    case .ping:
+                        try await self.pong(frame: frame)
+                    case .text:
+                        var data = frame.unmaskedData
+                        let text = data.readString(length: data.readableBytes) ?? ""
+                        await manager.textReceived(text, contextName: self.contextName)
+                    case .binary, .continuation, .pong:
+                        break
+                    default:
+                        await self.closeOnError()
+                    }
+                }
             }
-        case .binary, .continuation, .pong:
-            // We ignore these frames.
-            break
-        default:
-            // Unknown frames are errors.
-            self.closeOnError(context: context)
+        } catch is CancellationError {
+        } catch {
+            Log("WebSocket session error: \(error)")
         }
+
+        await manager.sessionEnded(self)
+        Log("Websocket client disconnected.")
     }
-    
-    public func channelReadComplete(context: ChannelHandlerContext) {
-        context.flush()
+
+    func writeText(_ string: String) async {
+        guard !awaitingClose else { return }
+        var buffer = ByteBufferAllocator().buffer(capacity: string.utf8.count)
+        buffer.writeString(string)
+        let frame = WebSocketFrame(fin: true, opcode: .text, data: buffer)
+        try? await outboundWriter?.write(frame)
     }
-    
-    private func receivedClose(context: ChannelHandlerContext, frame: WebSocketFrame) {
-        // Handle a received close frame. In websockets, we're just going to send the close
-        // frame and then close, unless we already sent our own close frame.
+
+    // MARK: - Private
+
+    private func receivedClose(frame: WebSocketFrame) async {
         if awaitingClose {
-            // Cool, we started the close and were waiting for the user. We're done.
-            context.close(promise: nil)
-        } else {
-            // This is an unsolicited close. We're going to send a response frame and
-            // then, when we've sent it, close up shop. We should send back the close code the remote
-            // peer sent us, unless they didn't send one at all.
-            var data = frame.unmaskedData
-            let closeDataCode = data.readSlice(length: 2) ?? ByteBuffer()
-            let closeFrame = WebSocketFrame(fin: true, opcode: .connectionClose, data: closeDataCode)
-            _ = context.write(self.wrapOutboundOut(closeFrame)).map { () in
-                context.close(promise: nil)
-            }
+            return
         }
-        
-        
-//        private var contextList = [ChannelHandlerContext]()
-//        private var connectedItems = [DanmakuWS]()
-//        private var danmakus = [Danmaku]()
-        
+        var data = frame.unmaskedData
+        let closeDataCode = data.readSlice(length: 2) ?? ByteBuffer()
+        let closeFrame = WebSocketFrame(fin: true, opcode: .connectionClose, data: closeDataCode)
+        try? await outboundWriter?.write(closeFrame)
     }
-    
-    private func pong(context: ChannelHandlerContext, frame: WebSocketFrame) {
+
+    private func pong(frame: WebSocketFrame) async throws {
         var frameData = frame.data
-        let maskingKey = frame.maskKey
-        
-        if let maskingKey = maskingKey {
+        if let maskingKey = frame.maskKey {
             frameData.webSocketUnmask(maskingKey)
         }
-        
         let responseFrame = WebSocketFrame(fin: true, opcode: .pong, data: frameData)
-        context.write(self.wrapOutboundOut(responseFrame), promise: nil)
+        try await outboundWriter?.write(responseFrame)
     }
-    
-    private func closeOnError(context: ChannelHandlerContext) {
-        // We have hit an error, we want to close. We do that by sending a close frame and then
-        // shutting down the write side of the connection.
-        var data = context.channel.allocator.buffer(capacity: 2)
+
+    private func closeOnError() async {
+        var data = ByteBufferAllocator().buffer(capacity: 2)
         data.write(webSocketErrorCode: .protocolError)
         let frame = WebSocketFrame(fin: true, opcode: .connectionClose, data: data)
-        context.write(self.wrapOutboundOut(frame)).whenComplete { (_: Result<Void, Error>) in
-            context.close(mode: .output, promise: nil)
-        }
+        try? await outboundWriter?.write(frame)
         awaitingClose = true
-    }
-    
-    
-    private func sendText(context: ChannelHandlerContext, _ string: String) {
-        guard context.channel.isActive else { return }
-
-        // We can't send if we sent a close message.
-        guard !self.awaitingClose else { return }
-
-        // We can't really check for error here, but it's also not the purpose of the
-        // example so let's not worry about it.
-        
-        var buffer = context.channel.allocator.buffer(capacity: string.bytes.count)
-        buffer.writeString(string)
-
-        let frame = WebSocketFrame(fin: true, opcode: .text, data: buffer)
-        let _ = context.writeAndFlush(self.wrapOutboundOut(frame))
     }
 }
 
-extension DanmakuWebSocketHandler {
-    func websocketConnected(_ context: ChannelHandlerContext) {
-        Log("Websocket client connected. \(context.name)")
-        Task { @MainActor in
-            contextList.append(context)
-        }
+@MainActor
+final class DanmakuSessionManager: DanmakuDelegate, DanmakuWSDelegate, @unchecked Sendable {
+    private var connectedItems = [DanmakuWS]()
+    private var danmakus = [Danmaku]()
+    private var sessions: [String: WebSocketSession] = [:]
+
+    // MARK: - Session lifecycle
+
+    func sessionStarted(_ session: WebSocketSession) {
+        sessions[session.contextName] = session
     }
-    
-    func websocketDisconnected(_ context: ChannelHandlerContext) {
-        Log("Websocket client disconnected.")
-        
-        Task { @MainActor in
-            connectedItems.removeAll { $0.contextName == context.name}
-            let items = self.connectedItems
-            danmakus.removeAll { dm in
-                let remove = !items.contains(where: { $0.url == dm.url })
-                if remove {
-                    dm.stop()
-                }
-                return remove
+
+    func sessionEnded(_ session: WebSocketSession) {
+        let contextName = session.contextName
+        sessions.removeValue(forKey: contextName)
+        connectedItems.removeAll { $0.contextName == contextName }
+        let activeURLs = Set(connectedItems.map { $0.url })
+        danmakus.removeAll { dm in
+            let remove = !activeURLs.contains(dm.url)
+            if remove {
+                dm.stop()
             }
-            
-            Log("Danmaku list: \(danmakus.map({ $0.url }))")
+            return remove
         }
     }
-    
-    @MainActor
-    func websocketReceived(_ context: ChannelHandlerContext, text: String) {
+
+    // MARK: - Text handling
+
+    func textReceived(_ text: String, contextName: String) {
         var clickType: IINAUrlType = .none
-        
-        let ws: DanmakuWS? = {
+
+        var ws: DanmakuWS? = {
             if text.starts(with: "iinaDM://") {
                 clickType = .plugin
                 var v = 0
                 var u = String(text.dropFirst("iinaDM://".count))
-                
+
                 if u.starts(with: "v=") {
                     let vu = u.split(separator: "&", maxSplits: 1)
                     guard vu.count == 2 else { return nil }
                     v = Int(vu[0].dropFirst(2)) ?? 0
                     u = String(vu[1])
                 }
-                
+
                 var re = DanmakuWS(id: u,
                                    site: .init(url: u),
                                    url: u,
-                                   contextName: context.name)
-                re.delegate = self
+                                   contextName: contextName)
                 re.version = v
                 return re
             } else if text.starts(with: "iinaWebDM://") {
@@ -179,77 +155,67 @@ extension DanmakuWebSocketHandler {
                 guard let ids = String(data: Data(hex: hex), encoding: .utf8)?.split(separator: "👻").map(String.init),
                       ids.count == 2 else { return nil }
                 let u = ids[1]
-                
+
                 var re = DanmakuWS(id: ids[0],
                                    site: .init(url: u),
                                    url: u,
-                                   contextName: context.name)
+                                   contextName: contextName)
                 re.version = 1
-                re.delegate = self
                 return re
             } else {
                 return nil
             }
         }()
-        
-        guard contextList.contains(where: { $0.name == context.name }),
-              let ws = ws else {
-            return
-        }
-        
-        Task { @MainActor in
-            switch clickType {
-            case .danmaku:
-                ws.loadCustomFont()
-                ws.customDMSpeed()
-                ws.customDMOpdacity()
-                
-                if [.bilibili, .bangumi, .b23].contains(ws.site) {
-                    ws.loadFilters()
-                    ws.loadXMLDM()
-                    context.close()
-                } else if ws.site != .unsupported {
-                    loadNewDanmaku(ws)
-                    connectedItems.append(ws)
-                }
-            case .plugin where ![.unsupported, .bangumi, .bilibili, .b23].contains(ws.site):
+
+        guard var ws else { return }
+
+        ws.delegate = self
+        ws.loadCustomFont()
+        ws.customDMSpeed()
+        ws.customDMOpdacity()
+
+        switch clickType {
+        case .danmaku:
+            if [.bilibili, .bangumi, .b23].contains(ws.site) {
+                ws.loadFilters()
+                ws.loadXMLDM()
+            } else if ws.site != .unsupported {
                 loadNewDanmaku(ws)
                 connectedItems.append(ws)
-            default:
-                break
             }
+        case .plugin where ![.unsupported, .bangumi, .bilibili, .b23].contains(ws.site):
+            loadNewDanmaku(ws)
+            connectedItems.append(ws)
+        default:
+            break
         }
     }
-}
 
-extension DanmakuWebSocketHandler: DanmakuDelegate {
+    // MARK: - DanmakuDelegate
+
     func send(_ event: DanmakuEvent, sender: Danmaku) {
-        connectedItems.filter {
-            $0.url == sender.url
-        }.forEach {
+        connectedItems.filter { $0.url == sender.url }.forEach {
             $0.send(event)
         }
     }
-    
-    @MainActor
-    func loadNewDanmaku(_ ws: DanmakuWS) {
+
+    // MARK: - DanmakuWSDelegate
+
+    func writeDanmakuEventText(contextName: String, _ string: String) {
+        guard let session = sessions[contextName] else { return }
+        Task {
+            await session.writeText(string)
+        }
+    }
+
+    // MARK: - Private
+
+    private func loadNewDanmaku(_ ws: DanmakuWS) {
         guard !danmakus.contains(where: { $0.url == ws.url }) else { return }
         let d = Danmaku(ws.url)
         d.id = ws.url
         d.delegate = self
         danmakus.append(d)
         d.loadDM()
-        
-        Log(danmakus.map({ $0.url }))
-    }
-}
-
-
-extension DanmakuWebSocketHandler: DanmakuWSDelegate {
-    func writeDanmakuEventText(contextName: String, _ string: String) {
-        guard let context = contextList.first(where: { $0.name == contextName }) else { return }
-        context.eventLoop.execute {
-            self.sendText(context: context, string)
-        }
     }
 }

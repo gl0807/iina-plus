@@ -45,6 +45,7 @@ struct DanmakuEvent: Encodable {
 
 
 protocol DanmakuWSDelegate {
+    @MainActor
     func writeDanmakuEventText(contextName: String, _ string: String)
 }
 
