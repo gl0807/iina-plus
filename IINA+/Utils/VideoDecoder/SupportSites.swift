@@ -132,6 +132,24 @@ enum SupportSites {
 		![.bilibili, .bangumi, .b23, .local].contains(self)
     }
 
+	var urlFilterPredicate: String {
+		switch self {
+		case .bilibili:
+			return "url CONTAINS 'bilibili.com/video/'"
+		case .bangumi:
+			return "url CONTAINS 'bilibili.com/bangumi/'"
+		default:
+			let tokens = hosts
+			if tokens.isEmpty {
+				return ""
+			} else if tokens.count == 1 {
+				return "url CONTAINS '\(tokens[0])'"
+			} else {
+				return tokens.map { "url CONTAINS '\($0)'" }.joined(separator: " || ")
+			}
+		}
+	}
+
 	static func canonicalHost(_ host: String) -> String {
 		SupportSites.siteHosts.first(where: { $0.value.contains(host) })?.value.first ?? host
 	}

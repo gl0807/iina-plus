@@ -909,21 +909,14 @@ class MainViewController: NSViewController {
             }
         }
         
-        var f2 = ""
+		var f2 = ""
 		if let item = siteFilterMenu.items.first(where: { $0.state == .on }) as? ObjMenuItem {
 			switch item.tag {
 			case 1:
 				f2 = ""
 			default:
 				if let i = item.item as? SupportSites {
-					let tokens = i.hosts
-					if tokens.isEmpty {
-						f2 = ""
-					} else if tokens.count == 1 {
-						f2 = "url CONTAINS '\(tokens[0])'"
-					} else {
-						f2 = tokens.map { "url CONTAINS '\($0)'" }.joined(separator: " || ")
-					}
+					f2 = i.urlFilterPredicate
 					if i == .bilibili || i == .bangumi {
 						f = ""
 					}
