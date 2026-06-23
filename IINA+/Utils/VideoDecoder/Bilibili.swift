@@ -167,13 +167,10 @@ actor Bilibili: SupportSiteProtocol {
         
         json.site = .bilibili
         let eps = try await getVideoList(url)
-        let list = eps.flatMap({ $0.1 })
-        var selector = list.first
-        if let s = selector, s.isCollection {
-            selector = list.first(where: { $0.bvid == bUrl.id })
-        } else {
-            selector = list.first(where: { $0.index == bUrl.p })
-        }
+        let list = eps.flattened.flatMap { $0.children.filter(\.isLeaf) }
+        let selector = list.first(where: { $0.bvid == bUrl.id && $0.index == bUrl.p })
+            ?? list.first(where: { $0.bvid == bUrl.id })
+            ?? list.first
         guard let s = selector else { throw VideoGetError.notFountData }
         
         json.id = Int(s.id) ?? -1
@@ -284,7 +281,7 @@ actor Bilibili: SupportSiteProtocol {
 		return try BilibiliPvideo(object: json)
     }
     
-    func getVideoList(_ url: String) async throws -> [(String, [BiliVideoSelector])] {
+    func getVideoList(_ url: String) async throws -> [VideoTreeNode] {
         var aid = -1
         var bvid = ""
         
@@ -311,23 +308,54 @@ actor Bilibili: SupportSiteProtocol {
         }
 		
 		let data = try await r.serializingData().value
-		
 		let json: JSONObject = try JSONParser.JSONObjectWithData(data)
 		
-		if let collection: BilibiliVideoCollection = try json.value(for: "data.ugc_season"), collection.episodes.count > 0 {
-			return collection.episodes
-		} else {
-			var infos: [BiliVideoSelector] = try json.value(for: "data.pages")
-			let bvid: String = try json.value(for: "data.bvid")
-			
-			if infos.count == 1 {
-				infos[0].title = try json.value(for: "data.title")
+		if let sectionsJSON: [JSONObject] = try? json.value(for: "data.ugc_season.sections") {
+			let seasonTitle: String? = try? json.value(for: "data.ugc_season.title")
+			var sections: [VideoTreeNode] = []
+			for sec in sectionsJSON {
+				guard let episodes: [JSONObject] = try? sec.value(for: "episodes") else { continue }
+				var singlePageNodes: [VideoTreeNode] = []
+				var multiPageSections: [VideoTreeNode] = []
+				for ep in episodes {
+					guard let bvid: String = try? ep.value(for: "bvid") else { continue }
+					if let pagesJSON: [JSONObject] = try? ep.value(for: "pages"), pagesJSON.count > 1 {
+						let items: [VideoTreeNode] = pagesJSON.compactMap { pageJSON in
+							try? biliVideoTreeNode(from: pageJSON, bvid: bvid)
+						}
+						guard !items.isEmpty else { continue }
+						let epTitle: String = (try? ep.value(for: "title")) ?? ""
+						multiPageSections.append(VideoTreeNode(title: epTitle, children: items))
+					} else {
+						guard let node = try? biliVideoTreeNode(from: ep) else { continue }
+						singlePageNodes.append(node)
+					}
+				}
+				if !singlePageNodes.isEmpty {
+					sections.append(VideoTreeNode(title: seasonTitle ?? "", children: singlePageNodes))
+				}
+				sections.append(contentsOf: multiPageSections)
 			}
-			infos.enumerated().forEach {
-				infos[$0.offset].bvid = bvid
-			}
-			return [("", infos)]
+			if !sections.isEmpty { return sections }
 		}
+		
+		let pagesArray: [JSONObject] = try json.value(for: "data.pages")
+		let bvidStr: String = try json.value(for: "data.bvid")
+		let mainTitle: String = try json.value(for: "data.title")
+		let pageSelectors: [VideoTreeNode] = try pagesArray.enumerated().map { (i, pageJSON) in
+			let node = try biliVideoTreeNode(from: pageJSON, bvid: bvidStr)
+			guard pagesArray.count == 1 else { return node }
+			return VideoTreeNode(
+				site: .bilibili,
+				index: node.index,
+				title: mainTitle,
+				id: node.id,
+				coverUrl: node.coverUrl,
+				bvid: node.bvid,
+				duration: node.duration,
+				isCollection: node.isCollection)
+		}
+		return [VideoTreeNode(title: "", children: pageSelectors)]
     }
 }
 
@@ -401,112 +429,31 @@ struct BilibiliPvideo: Unmarshaling, Sendable, Hashable {
     }
 }
 
-protocol BilibiliVideoSelector: VideoSelector {
-    var bvid: String { get set }
-    var duration: Int { get set }
-}
-
-struct BiliVideoSelector: Unmarshaling, BilibiliVideoSelector {
-    var url: String = ""
-    var isLiving: Bool = false
+func biliVideoTreeNode(from json: MarshaledObject, bvid: String? = nil) throws -> VideoTreeNode {
+    let cid: Int = try json.value(for: "cid")
+    let id = "\(cid)"
     
-    var bvid = ""
-    var isCollection = false
-    
-    // epid
-    let id: String
-    var index: Int
-    let part: String
-    var duration: Int
-    var title: String
-    let longTitle: String
-    let coverUrl: URL?
-//    let badge: Badge?
-    let site: SupportSites
-    
-    struct Badge {
-        let badge: String
-        let badgeColor: NSColor
-        let badgeType: Int
-    }
-    
-    init(object: MarshaledObject) throws {
-        let cid: Int = try object.value(for: "cid")
-        id = "\(cid)"
-        
-        if let pic: String = try? object.value(for: "arc.pic") {
-            coverUrl = .init(string: pic)
-            duration = (try? object.value(for: "arc.duration")) ?? 0
-            bvid = try object.value(for: "bvid")
-            index = 0
-            title = try object.value(for: "title")
-            isCollection = true
-            part = ""
-        } else {
-            index = try object.value(for: "page")
-            part = try object.value(for: "part")
-            duration = (try? object.value(for: "duration")) ?? 0
-            title = part
-            coverUrl = nil
-    //        badge = nil
-        }
-        longTitle = ""
-        site = .bilibili
-    }
-    
-	init(ep: BangumiEpList.BangumiEp) {
-        id = "\(ep.id)"
-        index = -1
-        part = ""
-        duration = 0
-        title = ep.title
-        longTitle = ep.longTitle
-        coverUrl = nil
-//        ep.badgeColor
-//        badge = .init(badge: ep.badge,
-//                      badgeColor: .red,
-//                      badgeType: ep.badgeType)
-        site = .bangumi
-    }
-}
-
-struct BilibiliVideoCollection: Unmarshaling {
-    let id: Int
-    let title: String
-    let cover: URL?
-    let mid: Int
-    let epCount: Int
-    let isPaySeason: Bool
-    let episodes: [(String, [BiliVideoSelector])]
-    
-    init(object: MarshaledObject) throws {
-        id = try object.value(for: "id")
-        title = try object.value(for: "title")
-        cover = .init(string: try object.value(for: "cover"))
-        mid = try object.value(for: "mid")
-        epCount = try object.value(for: "ep_count")
-        isPaySeason = try object.value(for: "is_pay_season")
-        
-        let s: [Section] = try object.value(for: "sections")
-        episodes = s.map {
-            ($0.title, $0.episodes)
-        }
-    }
-    
-    struct Section: Unmarshaling {
-        let id: Int
-        let title: String
-        let episodes: [BiliVideoSelector]
-        
-        init(object: MarshaledObject) throws {
-            id = try object.value(for: "id")
-            title = try object.value(for: "title")
-            var eps: [BiliVideoSelector] = try object.value(for: "episodes")
-            eps.enumerated().forEach {
-                eps[$0.offset].index = $0.offset + 1
-            }
-            episodes = eps
-        }
+    if let pic: String = try? json.value(for: "arc.pic") {
+        return VideoTreeNode(
+            site: .bilibili,
+            title: try json.value(for: "title"),
+            id: id,
+            coverUrl: URL(string: pic),
+            bvid: bvid ?? (try? json.value(for: "bvid")) ?? "",
+            duration: (try? json.value(for: "arc.duration")) ?? 0,
+            isCollection: true)
+    } else {
+        let page: Int = try json.value(for: "page")
+        let part: String = try json.value(for: "part")
+        let duration: Int = (try? json.value(for: "duration")) ?? 0
+        return VideoTreeNode(
+            site: .bilibili,
+            index: page,
+            title: part,
+            id: id,
+            bvid: bvid ?? "",
+            duration: duration,
+            isCollection: false)
     }
 }
 

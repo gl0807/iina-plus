@@ -13,11 +13,15 @@ class SelectVideoViewController: NSViewController {
     @IBOutlet weak var collectionView: NSCollectionView!
     var currentItem = 0
     
-    var videoInfos: [(String, [VideoSelector])] = [] {
+    var videoTreeNodes: [VideoTreeNode] = [] {
         didSet {
-            let length = videoInfos.flatMap {
-                $0.1
-            }.map {
+            videoInfos = videoTreeNodes.flattened
+        }
+    }
+    
+    private var videoInfos: [VideoTreeNode] = [] {
+        didSet {
+            let length = videoInfos.flatMap { $0.children.filter(\.isLeaf) }.map {
                 $0.title.count
             }.max()
             
@@ -55,16 +59,18 @@ class SelectVideoViewController: NSViewController {
         collectionView.register(SelectVideoCollectionViewItem.self, forItemWithIdentifier: .init("SelectVideoCollectionViewItem"))
     }
     
-    func videoInfos(at section: Int) -> [VideoSelector] {
-        videoInfos[section - (currentItem > 0 ? 1 : 0)].1
+    var leafItems: [VideoTreeNode] {
+        videoInfos.flatMap { $0.children.filter(\.isLeaf) }
     }
     
-    func videoInfo(at indexPath: IndexPath) -> VideoSelector? {
+    func videoInfos(at section: Int) -> [VideoTreeNode] {
+        videoInfos[section - (currentItem > 0 ? 1 : 0)].children.filter(\.isLeaf)
+    }
+    
+    func videoInfo(at indexPath: IndexPath) -> VideoTreeNode? {
         switch indexPath.section {
         case 0 where currentItem > 0:
-            return videoInfos.flatMap {
-                $0.1
-            }[currentItem]
+            return leafItems[currentItem]
         default:
             return videoInfos(at: indexPath.section)[indexPath.item]
         }
@@ -76,11 +82,12 @@ extension SelectVideoViewController: NSCollectionViewDelegateFlowLayout {
     func collectionView(_ collectionView: NSCollectionView, layout collectionViewLayout: NSCollectionViewLayout, referenceSizeForHeaderInSection section: Int) -> NSSize {
         if currentItem > 0 && section == 0 {
             return .zero
-        } else if videoInfos.count <= 1 {
-            return .zero
-        } else {
-            return .init(width: 1000, height: 30)
         }
+        let sectionIndex = section - (currentItem > 0 ? 1 : 0)
+        guard sectionIndex < videoInfos.count else { return .zero }
+        let secTitle = videoInfos[sectionIndex].title
+        guard !secTitle.isEmpty else { return .zero }
+        return .init(width: 1000, height: 30)
     }
 }
 
@@ -96,7 +103,9 @@ extension SelectVideoViewController: NSCollectionViewDataSource, NSCollectionVie
     
     func collectionView(_ collectionView: NSCollectionView, viewForSupplementaryElementOfKind kind: NSCollectionView.SupplementaryElementKind, at indexPath: IndexPath) -> NSView {
         let view = collectionView.makeSupplementaryView(ofKind: kind, withIdentifier: .init(rawValue: "SelectVideoCollectionViewHeader"), for: indexPath)
-        (view as? SelectVideoCollectionViewHeader)?.titleTextField.stringValue = videoInfo(at: indexPath)?.title ?? ""
+        let sectionIndex = indexPath.section - (currentItem > 0 ? 1 : 0)
+        let title = sectionIndex < videoInfos.count ? videoInfos[sectionIndex].title : ""
+        (view as? SelectVideoCollectionViewHeader)?.titleTextField.stringValue = title
         return view
     }
     
@@ -107,15 +116,18 @@ extension SelectVideoViewController: NSCollectionViewDataSource, NSCollectionVie
             return item
         }
         
-
         var s = ""
         switch info.site {
         case .bilibili:
-            s = "\(info.index)  \(info.title)"
+            if info.isCollection {
+                s = info.title
+            } else {
+                s = "\(info.index)  \(info.title)"
+            }
         case .bangumi:
             s = info.title
-            if let longTitle = (info as? BiliVideoSelector)?.longTitle {
-                s += "  \(longTitle)"
+            if !info.longTitle.isEmpty {
+                s += "  \(info.longTitle)"
             }
         case .douyu, .huya, .biliLive, .cc163:
             s = (info.isLiving ? "🔥" : "") + info.title
@@ -151,19 +163,17 @@ extension SelectVideoViewController: NSCollectionViewDataSource, NSCollectionVie
         var u = ""
         switch info.site {
         case .bilibili:
-            guard let info = info as? BiliVideoSelector else { return }
             if info.isCollection {
                 u = "https://www.bilibili.com/video/\(info.bvid)"
             } else {
-                u = "https://www.bilibili.com/video/\(videoId)?p=\(info.index)"
+                u = "https://www.bilibili.com/video/\(info.bvid)?p=\(info.index)"
             }
         case .douyu, .huya, .biliLive:
             u = info.url
         case .bangumi:
             u = "https://www.bilibili.com/bangumi/play/ep\(info.id)"
         case .cc163:
-            let i = info as! CC163VideoSelector
-            u = i.url
+            u = info.url
             
             main.searchField.stringValue = u
             main.searchField.becomeFirstResponder()

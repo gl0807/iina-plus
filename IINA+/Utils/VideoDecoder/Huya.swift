@@ -36,7 +36,7 @@ actor Huya: SupportSiteProtocol {
     
     struct HuyaRoomList {
         var current: String
-        var list = [HuyaVideoSelector]()
+        var list = [VideoTreeNode]()
     }
     
     
@@ -51,10 +51,11 @@ actor Huya: SupportSiteProtocol {
 				re.current = try $0.element.attr("href")
 			}
 			
-			try re.list.append(.init(
-				id: $0.element.attr("href"),
+			try re.list.append(VideoTreeNode(
+				site: .huya,
 				index: $0.offset,
 				title: $0.element.text(),
+				id: $0.element.attr("href"),
 				url: "https://www.huya.com/\($0.element.attr("href"))",
 				isLiving: $0.element.getChildNodes().contains(where: { try $0.attr("class") == "live" })
 			))
@@ -528,14 +529,3 @@ struct HuyaInfoMP: Unmarshaling, LiveInfo {
 	}
 }
 
-
-struct HuyaVideoSelector: VideoSelector {
-    var id: String
-    var coverUrl: URL?
-    
-    let site = SupportSites.huya
-    let index: Int
-    let title: String
-    let url: String
-    let isLiving: Bool
-}

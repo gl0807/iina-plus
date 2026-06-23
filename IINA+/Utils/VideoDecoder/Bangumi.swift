@@ -181,13 +181,16 @@ struct BangumiEpList: Unmarshaling {
         section = (try? object.value(for: "result.section")) ?? []
     }
     
-    var epVideoSelectors: [BiliVideoSelector] {
-        get {
-            var list = episodes.map(BiliVideoSelector.init)
-            list.enumerated().forEach {
-                list[$0.offset].index = $0.offset + 1
-            }
-            return list
+    var epVideoSelectors: [VideoTreeNode] {
+        episodes.enumerated().map { (offset, ep) in
+            VideoTreeNode(
+                site: .bangumi,
+                index: offset + 1,
+                title: ep.title,
+                id: "\(ep.id)",
+                bvid: ep.bvid,
+                duration: ep.duration,
+                longTitle: ep.longTitle)
         }
     }
 }
@@ -200,25 +203,29 @@ struct BangumiList: Unmarshaling {
     let epList: [BangumiInfo.BangumiEp]
     let sections: [BangumiInfo.BangumiSections]
 
-    var epVideoSelectors: [BiliVideoSelector] {
-        get {
-            var list = epList.map(BiliVideoSelector.init)
-            list.enumerated().forEach {
-                list[$0.offset].index = $0.offset + 1
-            }
-            return list
+    var epVideoSelectors: [VideoTreeNode] {
+        epList.enumerated().map { (offset, ep) in
+            VideoTreeNode(
+                site: .bangumi,
+                index: offset + 1,
+                title: ep.title,
+                id: "\(ep.id)",
+                bvid: ep.bvid,
+                duration: ep.duration,
+                longTitle: ep.longTitle)
         }
     }
 
-    var selectionVideoSelectors: [BiliVideoSelector] {
-        get {
-            var list = sections.compactMap {
-                $0.epList.first
-            }.map(BiliVideoSelector.init)
-            list.enumerated().forEach {
-                list[$0.offset].index = $0.offset + 1
-            }
-            return list
+    var selectionVideoSelectors: [VideoTreeNode] {
+        sections.compactMap { $0.episodes.first }.enumerated().map { (offset, ep) in
+            VideoTreeNode(
+                site: .bangumi,
+                index: offset + 1,
+                title: ep.title,
+                id: "\(ep.id)",
+                bvid: ep.bvid,
+                duration: ep.duration,
+                longTitle: ep.longTitle)
         }
     }
 

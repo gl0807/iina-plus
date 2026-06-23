@@ -150,7 +150,7 @@ class MainViewController: NSViewController {
             Task {
                 do {
                     let infos = try await Processes.shared.videoDecoder.bilibili.getVideoList("https://www.bilibili.com/video/\(bvid)")
-                    showSelectVideo(bvid, infos: infos)
+                    showSelectVideo(bvid, treeNodes: infos)
                 } catch let error {
                     Log("Get video list error: \(error)")
                 }
@@ -396,14 +396,14 @@ class MainViewController: NSViewController {
         NotificationCenter.default.post(name: .progressStatusChanged, object: nil, userInfo: ["inProgress": inProgress])
     }
     
-    func showSelectVideo(_ videoId: String, infos: [(String, [VideoSelector])], currentItem: Int = 0) {
+    func showSelectVideo(_ videoId: String, treeNodes: [VideoTreeNode], currentItem: Int = 0) {
         guard let selectVideoViewController = self.children.compactMap({ $0 as? SelectVideoViewController }).first else {
             return
         }
         
         DispatchQueue.main.async {
             self.searchField.stringValue = ""
-            selectVideoViewController.videoInfos = infos
+            selectVideoViewController.videoTreeNodes = treeNodes
             selectVideoViewController.videoId = videoId
             selectVideoViewController.currentItem = currentItem
             self.selectTabItem(.selectVideos)
@@ -579,10 +579,11 @@ class MainViewController: NSViewController {
 			switch bUrl.urlType {
 			case .video:
 				let infos = try await bilibili.getVideoList(u)
-				let list = infos.flatMap({ $0.1 })
+				let list = infos.flattened.flatMap { $0.children.filter(\.isLeaf) }
 				if list.count > 1 {
-					let cItem = list.first!.isCollection ? list.firstIndex(where: { $0.bvid == bUrl.id }) : bUrl.p - 1
-					showSelectVideo(bUrl.id, infos: infos, currentItem: cItem ?? 0)
+					let cItem = list.firstIndex(where: { $0.bvid == bUrl.id && $0.index == bUrl.p })
+						?? list.firstIndex(where: { $0.bvid == bUrl.id })
+					showSelectVideo(bUrl.id, treeNodes: infos, currentItem: cItem ?? 0)
 				} else {
 					try await decodeUrl()
 				}
@@ -598,7 +599,7 @@ class MainViewController: NSViewController {
 						} ?? 0
 					}
 					
-					showSelectVideo("", infos: [("", epVS)], currentItem: cItem)
+					showSelectVideo("", treeNodes: [VideoTreeNode(title: "", children: epVS)], currentItem: cItem)
 				}
 			default:
 				return
@@ -621,26 +622,19 @@ class MainViewController: NSViewController {
 							return
 						}
 						let cid = htmls.roomId
-						var re = [DouyuVideoSelector]()
-						
 						let names = try await douyu.getDouyuEventRoomNames(htmls.pageId)
+						let status = try await douyu.getDouyuEventRoomOnlineStatus(htmls.pageId)
 						
-						re = names.enumerated().map {
-							DouyuVideoSelector(
+						let re = names.enumerated().map {
+							VideoTreeNode(
+								site: .douyu,
 								index: $0.offset,
 								title: $0.element.text,
 								id: $0.element.roomId,
 								url: "https://www.douyu.com/\($0.element.roomId)",
-								isLiving: false,
-								coverUrl: nil)
+								isLiving: status[$0.element.roomId] ?? false)
 						}
-						
-						let status = try await douyu.getDouyuEventRoomOnlineStatus(htmls.pageId)
-						
-						re.enumerated().forEach {
-							re[$0.offset].isLiving = status[$0.element.id] ?? false
-						}
-						showSelectVideo("", infos: [("", re)], currentItem: re.map({ $0.id }).firstIndex(of: cid) ?? 0)
+						showSelectVideo("", treeNodes: [VideoTreeNode(title: "", children: re)], currentItem: re.map({ $0.id }).firstIndex(of: cid) ?? 0)
 					} catch let error {
 						switch error {
 						case VideoGetError.douyuNotFoundSubRooms:
@@ -658,7 +652,7 @@ class MainViewController: NSViewController {
 			if rl.list.count == 0 {
 				try await decodeUrl()
 			} else {
-				showSelectVideo("", infos: [("", rl.list)], currentItem: rl.list.firstIndex(where: { $0.id == rl.current }) ?? 0)
+				showSelectVideo("", treeNodes: [VideoTreeNode(title: "", children: rl.list)], currentItem: rl.list.firstIndex(where: { $0.id == rl.current }) ?? 0)
 			}
 		} else if SupportSites(url: str) == .biliLive {
 			let list = try await videoGet.biliLive.getRoomList(url.absoluteString)
@@ -668,23 +662,23 @@ class MainViewController: NSViewController {
 				var c = 0
 				if url.pathComponents.count > 1 {
 					let id = "\(url.pathComponents[1])"
-					c = list.1.firstIndex(where: { $0.id == id || $0.sid == id }) ?? 0
+					c = list.1.firstIndex(where: { $0.id == id }) ?? 0
 				}
-				showSelectVideo("", infos: [("", list.1)], currentItem: c)
+				showSelectVideo("", treeNodes: [VideoTreeNode(title: "", children: list.1)], currentItem: c)
 			}
 		} else if SupportSites(url: str) == .cc163 {
 			let state = try await videoGet.cc163.getCC163State(url.absoluteString)
 			if state.list.count > 1 {
 				let infos = state.list.enumerated().map {
-					CC163VideoSelector(
+					VideoTreeNode(
+						site: .cc163,
 						index: $0.offset,
 						title: $0.element.name,
-						ccid: "\($0.element.ccid)",
-						isLiving: $0.element.isLiving,
+						id: "\($0.element.ccid)",
 						url: $0.element.channel,
-						id: "\($0.element.ccid)")
+						isLiving: $0.element.isLiving)
 				}
-				showSelectVideo("", infos: [("", infos)])
+				showSelectVideo("", treeNodes: [VideoTreeNode(title: "", children: infos)])
 			} else if let i = state.info as? CC163Info {
 				str = "https://cc.163.com/ccid/\(i.ccid)"
 				try await decodeUrl()

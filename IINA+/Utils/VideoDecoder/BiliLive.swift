@@ -143,58 +143,59 @@ actor BiliLive: SupportSiteProtocol {
         }
     }
     
-    func getRoomList(_ url: String) async throws -> (String, [BiliLiveVideoSelector]) {
-        var re = [BiliLiveVideoSelector]()
+    func getRoomList(_ url: String) async throws -> (String, [VideoTreeNode]) {
+        var re = [VideoTreeNode]()
 		
 		let string = try await AF.request(url).serializingString().value
 		
-		
-		let selectors: [BiliLiveVideoSelector] = {
+		let initSelectors: [VideoTreeNode] = {
 			let s = string.subString(from: "window.__initialState = ", to: ";\n")
 			guard let data = s.data(using: .utf8),
 				  let json: JSONObject = try? JSONParser.JSONObjectWithData(data) else { return [] }
 			
 			if let list: [BiliLiveRoomList] = try? json.value(for: "live-non-revenue-player") {
 				re = list.first?.roomList.enumerated().map {
-					BiliLiveVideoSelector(
-						id: $0.element.roomId,
-						sid: "",
+					VideoTreeNode(
+						site: .biliLive,
 						index: $0.offset,
 						title: $0.element.tabText,
-						url: "")
+						id: $0.element.roomId)
 				} ?? []
 			} else {
 				re = self.findAllRoomIds(s).enumerated().map {
-					BiliLiveVideoSelector(
-						id: $0.element,
-						sid: "",
+					VideoTreeNode(
+						site: .biliLive,
 						index: $0.offset,
 						title: "",
-						url: "")
+						id: $0.element)
 				}
 			}
 			return re
 		}()
 		
-		let infoData = try await liveInfos(selectors.compactMap({ Int($0.id) }))
+		let infoData = try await liveInfos(initSelectors.compactMap({ Int($0.id) }))
 		
 		guard let json: JSONObject = try? JSONParser.JSONObjectWithData(infoData) else { return ("", []) }
 		
 		let rooms: [String: BiliLiveBaseInfo] = try json.value(for: "data.by_room_ids")
 		
-		re.enumerated().forEach { s in
-			let id = s.element.id
+		re = re.map { node in
+			let id = node.id
 			guard let info = rooms[id] ?? rooms.values.first(where: { $0.shortId == Int(id) }) else {
-				re[s.offset].url = "https://live.bilibili.com/\(id)"
-				return
+				return VideoTreeNode(
+					site: .biliLive,
+					index: node.index,
+					title: node.title,
+					id: id,
+					url: "https://live.bilibili.com/\(id)")
 			}
-			
-			re[s.offset].isLiving = info.isLiving
-			re[s.offset].url = info.url
-			re[s.offset].sid = "\(info.shortId)"
-			if re[s.offset].title == "" {
-				re[s.offset].title = info.uname
-			}
+			return VideoTreeNode(
+				site: .biliLive,
+				index: node.index,
+				title: node.title == "" ? info.uname : node.title,
+				id: id,
+				url: info.url,
+				isLiving: info.isLiving)
 		}
 		return ("", re)
     }
@@ -454,15 +455,3 @@ struct BiliLiveRoomList: Unmarshaling {
     }
 }
 
-
-struct BiliLiveVideoSelector: VideoSelector {
-    let id: String
-    var sid: String
-    var coverUrl: URL?
-    var isLiving: Bool = false
-    
-    let site = SupportSites.biliLive
-    let index: Int
-    var title: String
-    var url: String
-}
