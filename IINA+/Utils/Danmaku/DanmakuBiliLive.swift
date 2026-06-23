@@ -192,8 +192,9 @@ extension Danmaku {
 				 "sign": 0] as [String : Any]
 		AF.request("https://api.bilibili.com/x/v2/dm/list.so", parameters: p).response { re in
 			let data = re.data
-			let head = data.subdata(in: 0..<4)
-			let endIndex = Int(CFSwapInt32(head.withUnsafeBytes { (ptr: UnsafePointer<UInt32>) in ptr.pointee })) + 4
+			var r = PacketReader(data: data)
+			guard let raw = r.readUInt32() else { return }
+			let endIndex = Int(raw) + 4
 			let d1 = data.subdata(in: 4..<endIndex)
 			
 			let d2 = data.subdata(in: endIndex..<data.endIndex)

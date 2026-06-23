@@ -39,7 +39,7 @@ class JSPlayerURLSchemeHandler: NSObject, WKURLSchemeHandler {
 		case .biliLive:
 			request.setValue("https://live.bilibili.com", forHTTPHeaderField: "Referer")
 			request.setValue("https://live.bilibili.com", forHTTPHeaderField: "Origin")
-		case .qqLive:
+		case .qieTV:
 			request.setValue("libmpv", forHTTPHeaderField: "User-Agent")
 		case .huya:
 			request.setValue("https://www.huya.com/", forHTTPHeaderField: "Referer")

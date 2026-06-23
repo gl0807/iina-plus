@@ -77,7 +77,11 @@ class Danmaku: NSObject {
     
     var douyinDM: DouYinDM?
     
+    let qieTVDMServer = URL(string: "wss://node-18-danmaku.qiecdn.com/sub")
+    var qieTVSeq: UInt32 = 0
+    var qieTVRoomID: String = ""
     
+
     init(_ url: String) {
         liveSite = .init(url: url)
         self.url = url
@@ -174,6 +178,9 @@ class Danmaku: NSObject {
 			socketClosed = false
 			startHeartbeat()
 			}
+		case .qieTV:
+			let ws = WebSocketClient()
+			runEventLoop(ws, url: qieTVDMServer!)
         default:
             break
         }
@@ -242,6 +249,9 @@ class Danmaku: NSObject {
                         var pf = Douyin_PushFrame()
                         pf.payloadType = "hb"
                         try await self.socket?.send(data: pf.serializedData())
+                    case .qieTV:
+                        self.qieTVSeq += 1
+						try await self.socket?.send(data: self.qieTVPacket(op: 2, body: Data()))
                     default:
                         try await self.socket?.sendPing()
                     }
@@ -346,6 +356,14 @@ new Uint8Array(sendRegisterGroups(["live:\(id)", "chat:\(id)"]));
 			await sendMsg(douyuSocketFormatter(loginreq))
 			await sendMsg(douyuSocketFormatter(joingroup))
 			startHeartbeat()
+		case .qieTV:
+			qieTVSeq = 1
+			let rid = URL(string: self.url)?.lastPathComponent ?? ""
+			qieTVRoomID = rid
+			let json = """
+			{"uid":0,"token":"","roomId":"online://\(rid)","deviceId":"\(UUID().uuidString)","platform":"pc_web","unAccepts":[]}
+			"""
+			await sendMsg(qieTVPacket(op: 7, body: json.data(using: .utf8)!))
 		default:
 			break
 		}
@@ -366,8 +384,9 @@ new Uint8Array(sendRegisterGroups(["live:\(id)", "chat:\(id)"]));
 
 			func checkIntegrity(_ data: Data) -> Data? {
 				var d = data
-				let head = d.subdata(in: 0..<4)
-				let count = Int(CFSwapInt32(head.withUnsafeBytes { $0.load(as: UInt32.self) }))
+				var r = PacketReader(data: d)
+				guard let raw = r.readUInt32() else { return nil }
+				let count = Int(raw)
 				guard count == data.count else {
 					Log("BiliLive Checking for integrity failed.")
 					return nil
@@ -390,8 +409,9 @@ new Uint8Array(sendRegisterGroups(["live:\(id)", "chat:\(id)"]));
 			var datas: [Data] = []
 			guard var d = checkIntegrity(data) else { return }
 			while d.count > 20 {
-				let head = d.subdata(in: 0..<4)
-				let endIndex = Int(CFSwapInt32(head.withUnsafeBytes { $0.load(as: UInt32.self) }))
+				var r2 = PacketReader(data: d)
+				guard let raw = r2.readUInt32() else { break }
+				let endIndex = Int(raw)
 				if endIndex <= d.endIndex {
 					datas.append(d.subdata(in: 16..<endIndex))
 					d = d.subdata(in: endIndex..<d.endIndex)
@@ -448,8 +468,9 @@ new Uint8Array(sendRegisterGroups(["live:\(id)", "chat:\(id)"]));
 
 			var msgDatas: [Data] = []
 			while d.count > 12 {
-				let head = d.subdata(in: 0..<4)
-				let endIndex = Int(CFSwapInt32LittleToHost(head.withUnsafeBytes { $0.load(as: UInt32.self) }))
+				var r3 = PacketReader(data: d)
+				guard let raw = r3.readUInt32(endianness: .little) else { break }
+				let endIndex = Int(raw)
 				if d.count < endIndex+2 {
 					douyuSavedData.append(douyuSavedData)
 					d = Data()
@@ -519,11 +540,69 @@ new Uint8Array(sendRegisterGroups(["live:\(id)", "chat:\(id)"]));
 			} catch let error {
 				Log("\(error)")
 			}
+		case .qieTV:
+			var reader = PacketReader(data: data)
+			guard let totalLen = reader.readInt32(),
+				  let headerLen = reader.readInt16() else { return }
+			reader.skip(2) // version
+			guard let op = reader.readInt32() else { return }
+			reader.skip(4) // seq
+			if op == 9 {
+				while reader.available > 0 {
+					guard let subTotal = reader.readInt32(),
+						  let subHeader = reader.readInt16() else { break }
+					reader.skip(2) // version
+					guard let subOp = reader.readInt32() else { break }
+					reader.skip(4) // seq
+					let bodyLen = Int(subTotal) - Int(subHeader)
+					guard bodyLen >= 0, reader.available >= bodyLen else { break }
+					let body = reader.bytes(bodyLen)
+					processQieTVMessage(op: subOp, body: Data(body))
+				}
+			} else {
+				let bodyLen = Int(totalLen) - Int(headerLen)
+				guard bodyLen >= 0, reader.available >= bodyLen else { return }
+				let body = reader.bytes(bodyLen)
+				processQieTVMessage(op: op, body: Data(body))
+			}
 		default:
 			break
 		}
 	}
-    
+	
+	private func qieTVPacket(op: Int32, body: Data) -> Data {
+		var p = PacketWriter()
+		p.write(Int32(16 + body.count))
+		p.write(UInt16(16))
+		p.write(UInt16(1))
+		p.write(op)
+		p.write(qieTVSeq)
+		qieTVSeq += 1
+		p.write(body)
+		return p.data
+	}
+	
+	private func processQieTVMessage(op: Int32, body: Data) {
+		switch op {
+		case 3:
+			heartBeatCount = 0
+		case 8:
+			if let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+			   json["status"] as? Int == 0 {
+				Log("qieTV connect success")
+			}
+		case 2000:
+			if let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+			   let msg = json["msg"] as? [String: Any],
+			   let content = msg["content"] as? String {
+				let dm = DanmakuComment(text: content)
+				sendDM(.init(method: .sendDM, text: "", dms: [dm]))
+			}
+		default:
+			break
+		}
+	}
+	
     func pack(format: String, values: [Int]) -> NSMutableData {
         let data = NSMutableData()
         
@@ -549,6 +628,7 @@ new Uint8Array(sendRegisterGroups(["live:\(id)", "chat:\(id)"]));
         return data
     }
 }
+
 
 extension Danmaku: DanmakuSubDelegate {
     func send(_ event: DanmakuEvent) {

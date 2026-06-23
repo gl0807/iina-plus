@@ -31,6 +31,7 @@
 		012738C12C731EEB0031E643 /* TaskExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 012738C02C731EEB0031E643 /* TaskExtension.swift */; };
 		0132B2E32123D05E001EB7DC /* BilibiliCardProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0132B2E22123D05E001EB7DC /* BilibiliCardProgressView.swift */; };
 		0132B2E52123D68D001EB7DC /* BilibiliCardImageBoxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0132B2E42123D68D001EB7DC /* BilibiliCardImageBoxView.swift */; };
+		013394B32FE2CA7100A93713 /* PacketReaderWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 013394B22FE2CA7100A93713 /* PacketReaderWriter.swift */; };
 		0133ED242DD70B0800A12FE6 /* PluginSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0133ED232DD70B0800A12FE6 /* PluginSheetView.swift */; };
 		013598962CEC8EC400B3EFC0 /* Bangumi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 013598952CEC8EC400B3EFC0 /* Bangumi.swift */; };
 		013598982CEC95AE00B3EFC0 /* BilbiliShare.swift in Sources */ = {isa = PBXBuildFile; fileRef = 013598972CEC95AE00B3EFC0 /* BilbiliShare.swift */; };
@@ -78,7 +79,7 @@
 		017F0C502A63C24400043338 /* iina-plugin-danmaku.iinaplgz in Resources */ = {isa = PBXBuildFile; fileRef = 01C248B62A62418E00C92639 /* iina-plugin-danmaku.iinaplgz */; };
 		0182F5DD295F108D00DB8BDD /* DouYinResponse.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0182F5DC295F108D00DB8BDD /* DouYinResponse.pb.swift */; };
 		0184D7122B2025FF00C7901A /* DateExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0184D7112B2025FF00C7901A /* DateExtension.swift */; };
-		018739EE2852135200156F3F /* QQLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 018739ED2852135200156F3F /* QQLive.swift */; };
+		018739EE2852135200156F3F /* QieTV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 018739ED2852135200156F3F /* QieTV.swift */; };
 		01892C7827C0CDA400494AFD /* DouYin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01892C7727C0CDA400494AFD /* DouYin.swift */; };
 		0189533F279FBC470011BAAC /* ColorPickButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0189533E279FBC470011BAAC /* ColorPickButton.swift */; };
 		0189534827A0F5A90011BAAC /* LiveStateTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0189534727A0F5A90011BAAC /* LiveStateTextField.swift */; };
@@ -230,6 +231,7 @@
 		012738C02C731EEB0031E643 /* TaskExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskExtension.swift; sourceTree = "<group>"; };
 		0132B2E22123D05E001EB7DC /* BilibiliCardProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BilibiliCardProgressView.swift; sourceTree = "<group>"; };
 		0132B2E42123D68D001EB7DC /* BilibiliCardImageBoxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BilibiliCardImageBoxView.swift; sourceTree = "<group>"; };
+		013394B22FE2CA7100A93713 /* PacketReaderWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacketReaderWriter.swift; sourceTree = "<group>"; };
 		0133ED232DD70B0800A12FE6 /* PluginSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginSheetView.swift; sourceTree = "<group>"; };
 		013598952CEC8EC400B3EFC0 /* Bangumi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bangumi.swift; sourceTree = "<group>"; };
 		013598972CEC95AE00B3EFC0 /* BilbiliShare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BilbiliShare.swift; sourceTree = "<group>"; };
@@ -280,7 +282,7 @@
 		016FB4C52E559C57003A5960 /* Bookmark v0.3.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "Bookmark v0.3.xcdatamodel"; sourceTree = "<group>"; };
 		0182F5DC295F108D00DB8BDD /* DouYinResponse.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DouYinResponse.pb.swift; sourceTree = "<group>"; };
 		0184D7112B2025FF00C7901A /* DateExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateExtension.swift; sourceTree = "<group>"; };
-		018739ED2852135200156F3F /* QQLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QQLive.swift; sourceTree = "<group>"; };
+		018739ED2852135200156F3F /* QieTV.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QieTV.swift; sourceTree = "<group>"; };
 		01892C7727C0CDA400494AFD /* DouYin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DouYin.swift; sourceTree = "<group>"; };
 		0189533E279FBC470011BAAC /* ColorPickButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorPickButton.swift; sourceTree = "<group>"; };
 		0189534727A0F5A90011BAAC /* LiveStateTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveStateTextField.swift; sourceTree = "<group>"; };
@@ -360,7 +362,7 @@
 				0139E67A2E535F150099FD1E /* Settings in Frameworks */,
 				01C248CD2CE480F30074A76F /* DequeModule in Frameworks */,
 				01E668D62CEA322F008C51E7 /* NIOWebSocket in Frameworks */,
-					01E668D42CEA322F008C51E7 /* NIOHTTP1 in Frameworks */,
+				01E668D42CEA322F008C51E7 /* NIOHTTP1 in Frameworks */,
 				01C0807C27BC00EA00E87A8C /* Alamofire in Frameworks */,
 				01C0809727BC074000E87A8C /* SDWebImage in Frameworks */,
 				01C0808527BC03E300E87A8C /* SwiftSoup in Frameworks */,
@@ -573,7 +575,7 @@
 				01683DDA2118905D0016A886 /* Bilibili.swift */,
 				013598972CEC95AE00B3EFC0 /* BilbiliShare.swift */,
 				013598952CEC8EC400B3EFC0 /* Bangumi.swift */,
-				018739ED2852135200156F3F /* QQLive.swift */,
+				018739ED2852135200156F3F /* QieTV.swift */,
 				01C338B428E47B3F004CC0B8 /* MBGA.swift */,
 				010BEA6B2C4FE2C60061E1DC /* BilibiliDash.swift */,
 			);
@@ -650,6 +652,7 @@
 				01DCD2F8259710D800D286C8 /* BilibiliDMMessage.swift */,
 				016A71F22A91C50F007B4CA3 /* BiliLiveDMv2.pb.swift */,
 				016FAD1B2FE2957B007BA234 /* WebSocketClient.swift */,
+				013394B22FE2CA7100A93713 /* PacketReaderWriter.swift */,
 			);
 			path = Danmaku;
 			sourceTree = "<group>";
@@ -957,6 +960,7 @@
 				01AEC8BC20EDFFBD001406E8 /* YouGetJSON.swift in Sources */,
 				01B82B3928EEF9D300928F61 /* SelectVideoCollectionViewHeader.swift in Sources */,
 				011329262C06252300ED0D78 /* AboutViewController.swift in Sources */,
+				013394B32FE2CA7100A93713 /* PacketReaderWriter.swift in Sources */,
 				0132B2E52123D68D001EB7DC /* BilibiliCardImageBoxView.swift in Sources */,
 				01683DD9211869AE0016A886 /* BilibiliLoginViewController.swift in Sources */,
 				019F584F2AF1450800235BAE /* JSPlayerURLSchemeHandler.swift in Sources */,
@@ -978,7 +982,7 @@
 				01010137211EFA75002F0F7F /* SuggestionsTableView.swift in Sources */,
 				016D772427B0CD4300358E2F /* WaitTimer.swift in Sources */,
 				01E6A09C211AD62800C6EF98 /* VideoDurationFormatter.swift in Sources */,
-				018739EE2852135200156F3F /* QQLive.swift in Sources */,
+				018739EE2852135200156F3F /* QieTV.swift in Sources */,
 				0169098021CF472F008CDF0E /* SideBarImageView.swift in Sources */,
 				0132B2E32123D05E001EB7DC /* BilibiliCardProgressView.swift in Sources */,
 				016792E1212BBB43003517A7 /* SelectVideoViewController.swift in Sources */,

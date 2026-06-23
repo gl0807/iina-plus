@@ -603,7 +603,7 @@ class MainViewController: NSViewController {
 			default:
 				return
 			}
-		} else if url.host == "www.douyu.com",
+		} else if SupportSites(url: str) == .douyu,
 				  url.pathComponents.count > 2,
 				  url.pathComponents[1] == "topic" {
 			
@@ -652,15 +652,15 @@ class MainViewController: NSViewController {
 				}
 			}
 			
-			
-		} else if url.host == "www.huya.com" {
+
+		} else if SupportSites(url: str) == .huya {
 			let rl = try await videoGet.huya.getHuyaRoomList(url.absoluteString)
 			if rl.list.count == 0 {
 				try await decodeUrl()
 			} else {
 				showSelectVideo("", infos: [("", rl.list)], currentItem: rl.list.firstIndex(where: { $0.id == rl.current }) ?? 0)
 			}
-		} else if url.host == "live.bilibili.com" {
+		} else if SupportSites(url: str) == .biliLive {
 			let list = try await videoGet.biliLive.getRoomList(url.absoluteString)
 			if list.1.count == 0 || list.1.count == 1 {
 				try await decodeUrl()
@@ -672,7 +672,7 @@ class MainViewController: NSViewController {
 				}
 				showSelectVideo("", infos: [("", list.1)], currentItem: c)
 			}
-		} else if url.host == "cc.163.com" {
+		} else if SupportSites(url: str) == .cc163 {
 			let state = try await videoGet.cc163.getCC163State(url.absoluteString)
 			if state.list.count > 1 {
 				let infos = state.list.enumerated().map {
@@ -861,9 +861,9 @@ class MainViewController: NSViewController {
             .separator()
         ]
         
-        let sites = dataManager.requestData().map {
-            $0.url
-        }.compactMap(SupportSites.init(url: ))
+		let sites = dataManager.requestData().map {
+			$0.url
+		}.compactMap(SupportSites.init(url: ))
             .filter {
                 $0 != .unsupported
             }
@@ -910,18 +910,25 @@ class MainViewController: NSViewController {
         }
         
         var f2 = ""
-        if let item = siteFilterMenu.items.first(where: { $0.state == .on }) as? ObjMenuItem {
-            switch item.tag {
-            case 1:
-                f2 = ""
-            default:
-                if let i = item.item as? SupportSites {
-                    f2 = "url CONTAINS '\(i.rawValue)'"
-                    if i == .bilibili || i == .bangumi {
-                        f = ""
-                    }
-                }
-            }
+		if let item = siteFilterMenu.items.first(where: { $0.state == .on }) as? ObjMenuItem {
+			switch item.tag {
+			case 1:
+				f2 = ""
+			default:
+				if let i = item.item as? SupportSites {
+					let tokens = i.hosts
+					if tokens.isEmpty {
+						f2 = ""
+					} else if tokens.count == 1 {
+						f2 = "url CONTAINS '\(tokens[0])'"
+					} else {
+						f2 = tokens.map { "url CONTAINS '\($0)'" }.joined(separator: " || ")
+					}
+					if i == .bilibili || i == .bangumi {
+						f = ""
+					}
+				}
+			}
         }
         
         let format = [f, f2].filter {
@@ -983,12 +990,12 @@ extension MainViewController: NSTableViewDelegate, NSTableViewDataSource {
     
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
         switch tableView {
-        case bookmarkTableView:
-            let str = bookmarks[row].url
-            switch SupportSites(url: str) {
-            case .unsupported:
-                return 23
-            default:
+		case bookmarkTableView:
+			let str = bookmarks[row].url
+			switch SupportSites(url: str) {
+			case .unsupported:
+				return 23
+			default:
                 return 57
             }
         case bilibiliTableView:
@@ -1003,13 +1010,13 @@ extension MainViewController: NSTableViewDelegate, NSTableViewDataSource {
     
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         switch tableView {
-        case bookmarkTableView:
-            let data = bookmarks[row]
-            let str = data.url
-            switch SupportSites(url: str) {
-            case .unsupported:
-                return tableView.makeView(withIdentifier: .liveUrlTableCellView, owner: nil)
-            default:
+		case bookmarkTableView:
+			let data = bookmarks[row]
+			let str = data.url
+			switch SupportSites(url: str) {
+			case .unsupported:
+				return tableView.makeView(withIdentifier: .liveUrlTableCellView, owner: nil)
+			default:
                 return tableView.makeView(withIdentifier: .liveStatusTableCellView, owner: nil) as? LiveStatusTableCellView
             }
         case suggestionsTableView:

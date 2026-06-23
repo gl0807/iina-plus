@@ -68,8 +68,4 @@ public class Bookmark: NSManagedObject {
         guard let img else { return }
         image = NSImage(data: img)
     }
-    
-    func save() {
-//        try? (NSApp.delegate as? AppDelegate)?.persistentContainer.viewContext.save()
-    }
 }

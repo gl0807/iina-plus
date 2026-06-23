@@ -20,7 +20,7 @@ actor VideoDecoder {
     lazy var cc163 = CC163()
     lazy var biliLive = BiliLive()
     lazy var bilibili = Bilibili()
-    lazy var qqLive = QQLive()
+    lazy var qieTV = QieTV()
 	
 	let enableDash = false
     
@@ -57,8 +57,8 @@ actor VideoDecoder {
 			try await cc163.decodeUrl(url)
         case .douyin:
 			try await douyin.decodeUrl(url)
-        case .qqLive:
-			try await qqLive.decodeUrl(url)
+        case .qieTV:
+			try await qieTV.decodeUrl(url)
         default:
             throw VideoGetError.notSupported
         }
@@ -79,8 +79,8 @@ actor VideoDecoder {
 			return try await cc163.liveInfo(url)
         case .douyin:
 			return try await douyin.liveInfo(url)
-        case .qqLive:
-			return try await qqLive.liveInfo(url)
+        case .qieTV:
+			return try await qieTV.liveInfo(url)
         default:
             if checkSupport {
                 throw VideoGetError.notSupported

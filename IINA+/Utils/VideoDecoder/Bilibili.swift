@@ -541,13 +541,13 @@ struct BilibiliUrl {
     
     init?(url: String) {
         guard url != "",
-              let u = URL(string: url),
-              u.host == "www.bilibili.com" || u.host == "bilibili.com",
+              let comps = URLComponents(string: url),
+              SupportSites.isBilibiliHost(comps.host),
               let uc = URLComponents(string: url) else {
                   return nil
               }
         
-        let pcs = u.pathComponents
+        let pcs = comps.path.split(separator: "/").map(String.init)
         
         guard let id = pcs.first(where: {
             $0.starts(with: "av")
