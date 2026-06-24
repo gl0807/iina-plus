@@ -10,175 +10,195 @@ import Cocoa
 
 class SelectVideoViewController: NSViewController {
 
-    @IBOutlet weak var collectionView: NSCollectionView!
-    var currentItem = 0
-    
+    @IBOutlet var outlineView: NSOutlineView!
+    var currentItem = 0 {
+        didSet {
+            guard oldValue != currentItem else { return }
+            rootItems = buildRootItems()
+            outlineView.reloadData()
+            expandDefault()
+        }
+    }
+
+    private var rootItems: [VideoTreeNode] = []
+
     var videoTreeNodes: [VideoTreeNode] = [] {
         didSet {
             videoInfos = videoTreeNodes.flattened
         }
     }
-    
+
     private var videoInfos: [VideoTreeNode] = [] {
         didSet {
-            let length = videoInfos.flatMap { $0.children.filter(\.isLeaf) }.map {
-                $0.title.count
-            }.max()
-            
-            if let max = length {
-                var size: NSSize? = nil
-                switch max {
-                case _ where max > 40:
-                    size = NSSize(width: 190, height: 70)
-                case _ where max > 20:
-                    size = NSSize(width: 190, height: 52)
-                case _ where max > 0:
-                    size = NSSize(width: 190, height: 34)
-                default:
-                    break
-                }
-                if let size = size {
-                    let layout = NSCollectionViewFlowLayout()
-                    layout.itemSize = size
-                    layout.sectionInset.bottom = 20
-                    collectionView.collectionViewLayout = layout
-                }
-            }
-            collectionView.reloadData()
+            rootItems = buildRootItems()
+            outlineView.reloadData()
+            expandDefault()
         }
     }
-    
+
     var videoId = ""
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        (
-            collectionView.collectionViewLayout as? NSCollectionViewFlowLayout
-        )?.sectionHeadersPinToVisibleBounds = true
-        
-        collectionView.register(SelectVideoCollectionViewItem.self, forItemWithIdentifier: .init("SelectVideoCollectionViewItem"))
+        outlineView.headerView = nil
+        outlineView.dataSource = self
+        outlineView.delegate = self
     }
-    
+
+    private func buildRootItems() -> [VideoTreeNode] {
+        var items: [VideoTreeNode] = []
+        if currentItem > 0, currentItem < leafItems.count {
+            items.append(leafItems[currentItem])
+        }
+        items.append(contentsOf: videoInfos)
+        return items
+    }
+
+    private func expandDefault() {
+        let sections = rootItems.filter { !$0.isLeaf }
+
+        if sections.count <= 1 {
+            for item in sections {
+                outlineView.expandItem(item)
+            }
+            return
+        }
+
+        guard currentItem > 0, currentItem < leafItems.count else {
+            return
+        }
+
+        var offset = 0
+        for section in sections {
+            let count = section.children.filter(\.isLeaf).count
+            if currentItem >= offset, currentItem < offset + count {
+                outlineView.expandItem(section)
+                return
+            }
+            offset += count
+        }
+
+        outlineView.expandItem(sections.first!)
+    }
+
     var leafItems: [VideoTreeNode] {
         videoInfos.flatMap { $0.children.filter(\.isLeaf) }
     }
-    
-    func videoInfos(at section: Int) -> [VideoTreeNode] {
-        videoInfos[section - (currentItem > 0 ? 1 : 0)].children.filter(\.isLeaf)
-    }
-    
-    func videoInfo(at indexPath: IndexPath) -> VideoTreeNode? {
-        switch indexPath.section {
-        case 0 where currentItem > 0:
-            return leafItems[currentItem]
-        default:
-            return videoInfos(at: indexPath.section)[indexPath.item]
-        }
-    }
-    
-}
 
-extension SelectVideoViewController: NSCollectionViewDelegateFlowLayout {
-    func collectionView(_ collectionView: NSCollectionView, layout collectionViewLayout: NSCollectionViewLayout, referenceSizeForHeaderInSection section: Int) -> NSSize {
-        if currentItem > 0 && section == 0 {
-            return .zero
-        }
-        let sectionIndex = section - (currentItem > 0 ? 1 : 0)
-        guard sectionIndex < videoInfos.count else { return .zero }
-        let secTitle = videoInfos[sectionIndex].title
-        guard !secTitle.isEmpty else { return .zero }
-        return .init(width: 1000, height: 30)
-    }
-}
-
-extension SelectVideoViewController: NSCollectionViewDataSource, NSCollectionViewDelegate {
-    
-    func numberOfSections(in collectionView: NSCollectionView) -> Int {
-        videoInfos.count + (currentItem > 0 ? 1 : 0)
-    }
-    
-    func collectionView(_ collectionView: NSCollectionView, numberOfItemsInSection section: Int) -> Int {
-        (currentItem > 0 && section == 0) ? 1 : videoInfos(at: section).count
-    }
-    
-    func collectionView(_ collectionView: NSCollectionView, viewForSupplementaryElementOfKind kind: NSCollectionView.SupplementaryElementKind, at indexPath: IndexPath) -> NSView {
-        let view = collectionView.makeSupplementaryView(ofKind: kind, withIdentifier: .init(rawValue: "SelectVideoCollectionViewHeader"), for: indexPath)
-        let sectionIndex = indexPath.section - (currentItem > 0 ? 1 : 0)
-        let title = sectionIndex < videoInfos.count ? videoInfos[sectionIndex].title : ""
-        (view as? SelectVideoCollectionViewHeader)?.titleTextField.stringValue = title
-        return view
-    }
-    
-    func collectionView(_ collectionView: NSCollectionView, itemForRepresentedObjectAt indexPath: IndexPath) -> NSCollectionViewItem {
-        let item = collectionView.makeItem(withIdentifier: NSUserInterfaceItemIdentifier(rawValue: "SelectVideoCollectionViewItem"), for: indexPath)
-        guard let selectVideoItem = item as? SelectVideoCollectionViewItem,
-              let info = videoInfo(at: indexPath) else {
-            return item
-        }
-        
+    private func displayString(for node: VideoTreeNode) -> String {
         var s = ""
-        switch info.site {
+        switch node.site {
         case .bilibili:
-            if info.isCollection {
-                s = info.title
+            if node.isCollection {
+                s = node.title
             } else {
-                s = "\(info.index)  \(info.title)"
+                s = "\(node.index)  \(node.title)"
             }
         case .bangumi:
-            s = info.title
-            if !info.longTitle.isEmpty {
-                s += "  \(info.longTitle)"
+            s = node.title
+            if !node.longTitle.isEmpty {
+                s += "  \(node.longTitle)"
             }
         case .douyu, .huya, .biliLive, .cc163:
-            s = (info.isLiving ? "🔥" : "") + info.title
+            s = (node.isLiving ? "🔥" : "") + node.title
         default:
             break
         }
-        
-        selectVideoItem.titleTextField.stringValue = s
-        selectVideoItem.titleTextField.toolTip = s
-        return selectVideoItem
+        return s
     }
-    
-    func collectionView(_ collectionView: NSCollectionView, didDeselectItemsAt indexPaths: Set<IndexPath>) {
-        guard let indexPath = indexPaths.first,
-              let view = collectionView.item(at: indexPath)?.view as? SelectVideoCollectionViewItemView else {
-            return
+}
+
+extension SelectVideoViewController: NSOutlineViewDataSource, NSOutlineViewDelegate {
+
+    func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
+        if item == nil {
+            return rootItems.count
+        } else if let node = item as? VideoTreeNode, !node.isLeaf {
+            return node.children.filter(\.isLeaf).count
         }
-        view.isSelected = false
+        return 0
     }
-    
-    func collectionView(_ collectionView: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>) {
-        guard let indexPath = indexPaths.first,
-              let view = collectionView.item(at: indexPath)?.view as? SelectVideoCollectionViewItemView,
-              let main = self.parent as? MainViewController,
-              let info = videoInfo(at: indexPath) else {
-            return
+
+    func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
+        if item == nil {
+            return rootItems[index]
+        } else if let node = item as? VideoTreeNode, !node.isLeaf {
+            return node.children.filter(\.isLeaf)[index]
         }
-        
-        view.isSelected = true
-        
+        return VideoTreeNode(title: "", id: "")
+    }
+
+    func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
+        guard let node = item as? VideoTreeNode else { return false }
+        return !node.isLeaf
+    }
+
+    func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
+        guard let node = item as? VideoTreeNode else { return nil }
+
+        if node.isLeaf {
+            let identifier = NSUserInterfaceItemIdentifier("SelectVideoCellView")
+            guard let cell = outlineView.makeView(withIdentifier: identifier, owner: nil) as? NSTableCellView else {
+                return nil
+            }
+            let s = displayString(for: node)
+            cell.textField?.stringValue = s
+            cell.textField?.toolTip = s
+            return cell
+        } else {
+            let identifier = NSUserInterfaceItemIdentifier("SelectVideoGroupHeader")
+            guard let cell = outlineView.makeView(withIdentifier: identifier, owner: nil) as? NSTableCellView else {
+                return nil
+            }
+            cell.textField?.stringValue = node.title
+            cell.textField?.toolTip = node.title
+            return cell
+        }
+    }
+
+    func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
+        guard let node = item as? VideoTreeNode else { return 24 }
+        return node.isLeaf ? 34 : 32
+    }
+
+    func outlineView(_ outlineView: NSOutlineView, shouldSelectItem item: Any) -> Bool {
+        guard let node = item as? VideoTreeNode, !node.isLeaf else { return true }
+        if outlineView.isItemExpanded(item) {
+            outlineView.animator().collapseItem(item)
+        } else {
+            outlineView.animator().expandItem(item)
+        }
+        return false
+    }
+
+    func outlineViewSelectionDidChange(_ notification: Notification) {
+        let row = outlineView.selectedRow
+        guard row >= 0,
+              let item = outlineView.item(atRow: row) as? VideoTreeNode,
+              item.isLeaf else { return }
+
+        guard let main = self.parent as? MainViewController else { return }
+
         main.selectTabItem(.search)
-        
+
         var u = ""
-        switch info.site {
+        switch item.site {
         case .bilibili:
-            if info.isCollection {
-                u = "https://www.bilibili.com/video/\(info.bvid)"
+            if item.isCollection {
+                u = "https://www.bilibili.com/video/\(item.bvid)"
             } else {
-                u = "https://www.bilibili.com/video/\(info.bvid)?p=\(info.index)"
+                u = "https://www.bilibili.com/video/\(item.bvid)?p=\(item.index)"
             }
         case .douyu, .huya, .biliLive:
-            u = info.url
+            u = item.url
         case .bangumi:
-            u = "https://www.bilibili.com/bangumi/play/ep\(info.id)"
+            u = "https://www.bilibili.com/bangumi/play/ep\(item.id)"
         case .cc163:
-            u = info.url
-            
+            u = item.url
             main.searchField.stringValue = u
             main.searchField.becomeFirstResponder()
             main.startSearchingUrl(u, directly: false)
-            view.isSelected = false
+            outlineView.deselectRow(row)
             return
         default:
             break
@@ -186,6 +206,6 @@ extension SelectVideoViewController: NSCollectionViewDataSource, NSCollectionVie
         main.searchField.stringValue = u
         main.searchField.becomeFirstResponder()
         main.startSearchingUrl(u, directly: true)
-        view.isSelected = false
+        outlineView.deselectRow(row)
     }
 }
