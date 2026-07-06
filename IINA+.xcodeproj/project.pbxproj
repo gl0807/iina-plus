@@ -33,8 +33,8 @@
 		0132B2E52123D68D001EB7DC /* BilibiliCardImageBoxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0132B2E42123D68D001EB7DC /* BilibiliCardImageBoxView.swift */; };
 		013394B32FE2CA7100A93713 /* PacketReaderWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 013394B22FE2CA7100A93713 /* PacketReaderWriter.swift */; };
 		0133ED242DD70B0800A12FE6 /* PluginSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0133ED232DD70B0800A12FE6 /* PluginSheetView.swift */; };
-		013598962CEC8EC400B3EFC0 /* Bangumi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 013598952CEC8EC400B3EFC0 /* Bangumi.swift */; };
-		013598982CEC95AE00B3EFC0 /* BilbiliShare.swift in Sources */ = {isa = PBXBuildFile; fileRef = 013598972CEC95AE00B3EFC0 /* BilbiliShare.swift */; };
+		013598962CEC8EC400B3EFC0 /* BiliBangumi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 013598952CEC8EC400B3EFC0 /* BiliBangumi.swift */; };
+		013598982CEC95AE00B3EFC0 /* Bilibili.swift in Sources */ = {isa = PBXBuildFile; fileRef = 013598972CEC95AE00B3EFC0 /* Bilibili.swift */; };
 		013850FA214EA2AA003817CE /* huya.js in Resources */ = {isa = PBXBuildFile; fileRef = 013850F9214EA2AA003817CE /* huya.js */; };
 		01398985210F27A600B7042F /* PreferencesWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01398984210F27A600B7042F /* PreferencesWindowController.swift */; };
 		01398987210F58E500B7042F /* MainWindowTableRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01398986210F58E500B7042F /* MainWindowTableRowView.swift */; };
@@ -68,7 +68,7 @@
 		016792E7212BDEE5003517A7 /* SelectVideoCollectionViewItem.xib in Resources */ = {isa = PBXBuildFile; fileRef = 016792E5212BDEE5003517A7 /* SelectVideoCollectionViewItem.xib */; };
 		016792EE212C421F003517A7 /* SelectVideoCollectionViewItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 016792ED212C421F003517A7 /* SelectVideoCollectionViewItemView.swift */; };
 		01683DD9211869AE0016A886 /* BilibiliLoginViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01683DD8211869AE0016A886 /* BilibiliLoginViewController.swift */; };
-		01683DDB2118905D0016A886 /* Bilibili.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01683DDA2118905D0016A886 /* Bilibili.swift */; };
+		01683DDB2118905D0016A886 /* BiliVideo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01683DDA2118905D0016A886 /* BiliVideo.swift */; };
 		01683DDE211924160016A886 /* BilibiliViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01683DDD211924160016A886 /* BilibiliViewController.swift */; };
 		0169098021CF472F008CDF0E /* SideBarImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0169097F21CF472F008CDF0E /* SideBarImageView.swift */; };
 		016A71ED2A91AA48007B4CA3 /* DanmakuBiliLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 016A71EC2A91AA48007B4CA3 /* DanmakuBiliLive.swift */; };
@@ -233,8 +233,8 @@
 		0132B2E42123D68D001EB7DC /* BilibiliCardImageBoxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BilibiliCardImageBoxView.swift; sourceTree = "<group>"; };
 		013394B22FE2CA7100A93713 /* PacketReaderWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacketReaderWriter.swift; sourceTree = "<group>"; };
 		0133ED232DD70B0800A12FE6 /* PluginSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginSheetView.swift; sourceTree = "<group>"; };
-		013598952CEC8EC400B3EFC0 /* Bangumi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bangumi.swift; sourceTree = "<group>"; };
-		013598972CEC95AE00B3EFC0 /* BilbiliShare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BilbiliShare.swift; sourceTree = "<group>"; };
+		013598952CEC8EC400B3EFC0 /* BiliBangumi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiliBangumi.swift; sourceTree = "<group>"; };
+		013598972CEC95AE00B3EFC0 /* Bilibili.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bilibili.swift; sourceTree = "<group>"; };
 		013850F9214EA2AA003817CE /* huya.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = huya.js; sourceTree = "<group>"; };
 		01398984210F27A600B7042F /* PreferencesWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesWindowController.swift; sourceTree = "<group>"; };
 		01398986210F58E500B7042F /* MainWindowTableRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowTableRowView.swift; sourceTree = "<group>"; };
@@ -270,7 +270,7 @@
 		016792E5212BDEE5003517A7 /* SelectVideoCollectionViewItem.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = SelectVideoCollectionViewItem.xib; sourceTree = "<group>"; };
 		016792ED212C421F003517A7 /* SelectVideoCollectionViewItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectVideoCollectionViewItemView.swift; sourceTree = "<group>"; };
 		01683DD8211869AE0016A886 /* BilibiliLoginViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BilibiliLoginViewController.swift; sourceTree = "<group>"; };
-		01683DDA2118905D0016A886 /* Bilibili.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bilibili.swift; sourceTree = "<group>"; };
+		01683DDA2118905D0016A886 /* BiliVideo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiliVideo.swift; sourceTree = "<group>"; };
 		01683DDD211924160016A886 /* BilibiliViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BilibiliViewController.swift; sourceTree = "<group>"; };
 		0169097F21CF472F008CDF0E /* SideBarImageView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SideBarImageView.swift; sourceTree = "<group>"; };
 		016A71EC2A91AA48007B4CA3 /* DanmakuBiliLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DanmakuBiliLive.swift; sourceTree = "<group>"; };
@@ -572,9 +572,9 @@
 				018F4F6028126FFD0045B67C /* Huya.swift */,
 				01A183DA2B789728006FA874 /* HuyaUrl.swift */,
 				018F4F6B2817FFF30045B67C /* BiliLive.swift */,
-				01683DDA2118905D0016A886 /* Bilibili.swift */,
-				013598972CEC95AE00B3EFC0 /* BilbiliShare.swift */,
-				013598952CEC8EC400B3EFC0 /* Bangumi.swift */,
+				01683DDA2118905D0016A886 /* BiliVideo.swift */,
+				013598972CEC95AE00B3EFC0 /* Bilibili.swift */,
+				013598952CEC8EC400B3EFC0 /* BiliBangumi.swift */,
 				018739ED2852135200156F3F /* QieTV.swift */,
 				01C338B428E47B3F004CC0B8 /* MBGA.swift */,
 				010BEA6B2C4FE2C60061E1DC /* BilibiliDash.swift */,
@@ -913,7 +913,7 @@
 				01AEC8C920F1081C001406E8 /* Identifiers.swift in Sources */,
 				01010125211DBC27002F0F7F /* StringExtension.swift in Sources */,
 				013A05EF2BC8052900AD63DD /* MainWindowTableView.swift in Sources */,
-				013598982CEC95AE00B3EFC0 /* BilbiliShare.swift in Sources */,
+				013598982CEC95AE00B3EFC0 /* Bilibili.swift in Sources */,
 				010BEA6C2C4FE2C60061E1DC /* BilibiliDash.swift in Sources */,
 				0196CB6421214B4200BCD29E /* AdvancedViewController.swift in Sources */,
 				0199489E2742852E00C71708 /* SupportSites.swift in Sources */,
@@ -923,7 +923,7 @@
 				0155C39B2CF481B9004A2042 /* HttpServer.swift in Sources */,
 				0155C39C2CF481B9004A2042 /* NIOHTTPServer.swift in Sources */,
 				019948BF2743DF3600C71708 /* ObjMenuItem.swift in Sources */,
-				01683DDB2118905D0016A886 /* Bilibili.swift in Sources */,
+				01683DDB2118905D0016A886 /* BiliVideo.swift in Sources */,
 				0133ED242DD70B0800A12FE6 /* PluginSheetView.swift in Sources */,
 				0182F5DD295F108D00DB8BDD /* DouYinResponse.pb.swift in Sources */,
 				01260178211ABD3B00C9C639 /* VideoViewsFormatter.swift in Sources */,
@@ -944,7 +944,7 @@
 				015C19DC218B0D4F003B2F3A /* VideoGetStructs.swift in Sources */,
 				013CE8DE2184459E000271FB /* Danmaku.swift in Sources */,
 				0195C0BE2E476C3D00E8BB36 /* Color+NSColor.swift in Sources */,
-				013598962CEC8EC400B3EFC0 /* Bangumi.swift in Sources */,
+				013598962CEC8EC400B3EFC0 /* BiliBangumi.swift in Sources */,
 				0101012B211DCE1C002F0F7F /* SidebarTableCellView.swift in Sources */,
 				0184D7122B2025FF00C7901A /* DateExtension.swift in Sources */,
 				011E4D3321E99CA400997633 /* Log.swift in Sources */,

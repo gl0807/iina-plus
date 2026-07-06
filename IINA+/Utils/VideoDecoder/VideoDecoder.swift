@@ -19,7 +19,7 @@ actor VideoDecoder {
     lazy var douyu = Douyu()
     lazy var cc163 = CC163()
     lazy var biliLive = BiliLive()
-    lazy var bilibili = Bilibili()
+    lazy var bilibili = BiliVideo()
     lazy var qieTV = QieTV()
 	
 	let enableDash = false
@@ -137,7 +137,7 @@ actor VideoDecoder {
 			}
 			
 			let qn = stream.quality
-            let json = try await bilibili.biliShare.bilibiliPlayUrl(yougetJson: json, json.site == .bangumi, qn)
+            let json = try await Bilibili.shared.bilibiliPlayUrl(yougetJson: json, json.site == .bangumi, qn)
 			return await registerDash(json)
 		case .biliLive:
 			guard let stream = json.streams[key],
