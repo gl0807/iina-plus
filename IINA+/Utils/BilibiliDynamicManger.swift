@@ -86,8 +86,8 @@ actor BilibiliDynamicManger {
 		do {
 			
 			let bilibili = await Processes.shared.videoDecoder.bilibili
-			let uid = try await bilibili.getUid()
-			let cards = try await bilibili.dynamicList(uid, action, dynamicID)
+			let uid = try await Bilibili.shared.getUid()
+			let cards = try await Bilibili.shared.dynamicList(uid, action, dynamicID)
 			
 			switch action {
 			case .init😅:

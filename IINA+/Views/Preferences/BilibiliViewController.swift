@@ -16,7 +16,7 @@ class BilibiliViewController: NSViewController {
 		Task {
 			do {
 				let bilibili = await Processes.shared.videoDecoder.bilibili
-				try await bilibili.logout()
+				try await Bilibili.shared.logout()
 				initStatus()
 			} catch let error {
 				Log("Logout bilibili error: \(error)")
@@ -59,7 +59,7 @@ class BilibiliViewController: NSViewController {
 		Task {
 			do {
 				let bilibili = await Processes.shared.videoDecoder.bilibili
-				let s = try await bilibili.isLogin()
+				let s = try await Bilibili.shared.isLogin()
 				updateStatus(s)
 			} catch let error {
 				Log("Init bilibili status error: \(error)")

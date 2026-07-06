@@ -107,7 +107,7 @@ extension Danmaku {
 	
 	func bililiveToken(_ rid: String) async throws -> String {
         
-        let param = try await Processes.shared.videoDecoder.bilibili.wbiSign("id=\(rid)&type=0&web_location=444.8")
+        let param = try await Bilibili.shared.wbiSign("id=\(rid)&type=0&web_location=444.8")
 		let url = "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?\(param)"
         
 		let data = try await AF.request(url).serializingData().value

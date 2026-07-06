@@ -132,7 +132,7 @@ class Danmaku: NSObject {
 			let rid = try await self.bililiveRid(roomID)
 			let token = try await bililiveToken(rid)
 			let emoticons = try await bililiveEmoticons(rid)
-			let uid = try await Bilibili().getUid()
+			let uid = try await Bilibili.shared.getUid()
 			
 			await MainActor.run {
 				biliLiveIDs.rid = rid

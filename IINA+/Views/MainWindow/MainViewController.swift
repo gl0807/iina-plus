@@ -588,7 +588,7 @@ class MainViewController: NSViewController {
 					try await decodeUrl()
 				}
 			case .bangumi:
-                let epVS = try await bilibili.bangumi.getBangumiList(u).epVideoSelectors
+                let epVS = try await Bilibili.shared.bangumi.getBangumiList(u).epVideoSelectors
 				if epVS.count == 1 {
 					try await decodeUrl()
 				} else {

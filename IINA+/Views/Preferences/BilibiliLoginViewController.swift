@@ -98,7 +98,7 @@ document.getElementsByClassName("v-navbar__back")[0].remove();
 			}
 			
 			let bilibili = await Processes.shared.videoDecoder.bilibili
-			let isLogin = try await bilibili.isLogin()
+			let isLogin = try await Bilibili.shared.isLogin()
 			
 			Log("islogin \(isLogin.0), \(isLogin.1)")
 			
