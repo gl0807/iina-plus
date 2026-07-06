@@ -30,6 +30,11 @@ actor VideoDecoder {
         
         switch site {
         case .bilibili, .bangumi:
+            if url.contains("/festival/"),
+               let comps = URLComponents(string: url),
+               let bvid = comps.queryItems?.first(where: { $0.name == "bvid" })?.value {
+                return "https://www.bilibili.com/video/\(bvid)"
+            }
             return BilibiliUrl(url: url)!.fUrl
         case .b23:
 			let res = await AF.request(url).serializingData().response

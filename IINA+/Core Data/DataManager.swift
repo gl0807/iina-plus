@@ -86,8 +86,16 @@ class DataManager: NSObject {
     }
     
     func addBookmark(_ str: String) {
+        let url: String
+        if str.contains("/festival/"),
+           let comps = URLComponents(string: str),
+           let bvid = comps.queryItems?.first(where: { $0.name == "bvid" })?.value {
+            url = "https://www.bilibili.com/video/\(bvid)"
+        } else {
+            url = str
+        }
         let newBookmark = Bookmark(context: context)
-        newBookmark.url = str
+        newBookmark.url = url
         if let last = requestData().last {
             newBookmark.order = last.order + 1
         } else {
