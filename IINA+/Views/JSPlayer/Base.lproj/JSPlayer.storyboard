@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="24128" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" initialViewController="GVV-O1-4pZ">
+<document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="25087" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" initialViewController="GVV-O1-4pZ">
     <dependencies>
         <deployment identifier="macosx"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="24128"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="25087"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <scenes>
@@ -167,21 +167,21 @@
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                     <subviews>
                                         <visualEffectView blendingMode="behindWindow" material="contentBackground" state="followsWindowActiveState" translatesAutoresizingMaskIntoConstraints="NO" id="3qo-tP-DFx" customClass="ControllersVisualEffectView" customModule="IINA_" customModuleProvider="target">
-                                            <rect key="frame" x="0.0" y="15" width="107" height="186"/>
+                                            <rect key="frame" x="0.0" y="15" width="110" height="186"/>
                                             <subviews>
                                                 <scrollView borderType="none" autohidesScrollers="YES" horizontalLineScroll="24" horizontalPageScroll="10" verticalLineScroll="24" verticalPageScroll="10" usesPredominantAxisScrolling="NO" translatesAutoresizingMaskIntoConstraints="NO" id="PSe-yc-qYo">
-                                                    <rect key="frame" x="12" y="2" width="83" height="140"/>
+                                                    <rect key="frame" x="12" y="2" width="86" height="140"/>
                                                     <clipView key="contentView" drawsBackground="NO" id="7k4-lH-8k6">
-                                                        <rect key="frame" x="0.0" y="0.0" width="83" height="140"/>
+                                                        <rect key="frame" x="0.0" y="0.0" width="86" height="140"/>
                                                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                         <subviews>
                                                             <tableView verticalHuggingPriority="750" allowsExpansionToolTips="YES" columnAutoresizingStyle="lastColumnOnly" tableStyle="plain" columnReordering="NO" columnSelection="YES" multipleSelection="NO" emptySelection="NO" autosaveColumns="NO" rowHeight="24" viewBased="YES" id="6So-Mt-rQe">
-                                                                <rect key="frame" x="0.0" y="0.0" width="83" height="140"/>
+                                                                <rect key="frame" x="0.0" y="0.0" width="86" height="140"/>
                                                                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                                 <color key="backgroundColor" red="1" green="1" blue="1" alpha="0.0" colorSpace="custom" customColorSpace="sRGB"/>
                                                                 <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                                                 <tableColumns>
-                                                                    <tableColumn width="83" minWidth="80" maxWidth="1000" id="hAp-ie-Pzg">
+                                                                    <tableColumn width="86" minWidth="80" maxWidth="1000" id="hAp-ie-Pzg">
                                                                         <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border">
                                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -194,11 +194,11 @@
                                                                         <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                                         <prototypeCellViews>
                                                                             <tableCellView id="KJd-wV-Kym">
-                                                                                <rect key="frame" x="0.0" y="0.0" width="83" height="24"/>
+                                                                                <rect key="frame" x="0.0" y="0.0" width="86" height="24"/>
                                                                                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                                                 <subviews>
                                                                                     <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="BoA-Ug-ZQm">
-                                                                                        <rect key="frame" x="6" y="4" width="71" height="16"/>
+                                                                                        <rect key="frame" x="6" y="4" width="74" height="16"/>
                                                                                         <textFieldCell key="cell" lineBreakMode="truncatingTail" sendsActionOnEndEditing="YES" title="Table View Cell" id="Lz2-R0-mki">
                                                                                             <font key="font" usesAppearanceFont="YES"/>
                                                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
@@ -219,7 +219,7 @@
                                                                                 </connections>
                                                                             </tableCellView>
                                                                             <customView identifier="MainWindowTableRowView" id="Yhi-Nk-1Ik" customClass="MainWindowTableRowView" customModule="IINA_" customModuleProvider="target">
-                                                                                <rect key="frame" x="0.0" y="24" width="83" height="24"/>
+                                                                                <rect key="frame" x="0.0" y="24" width="86" height="24"/>
                                                                                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                                                             </customView>
                                                                         </prototypeCellViews>
@@ -247,7 +247,7 @@
                                                     </scroller>
                                                 </scrollView>
                                                 <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="G4f-6J-d9g">
-                                                    <rect key="frame" x="12" y="150" width="83" height="24"/>
+                                                    <rect key="frame" x="12" y="150" width="86" height="24"/>
                                                     <popUpButtonCell key="cell" type="push" title="Item 1" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" refusesFirstResponder="YES" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="03k-iW-imw" id="Cda-il-UrZ">
                                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                                         <font key="font" metaFont="message"/>
