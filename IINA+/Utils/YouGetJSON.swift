@@ -196,7 +196,7 @@ struct YouGetJSON: Unmarshaling, Codable {
 		var args = [
 			"new_window=1",
 			"url=http://127.0.0.1:\(port)/video.mp4?",
-			"mpv_\(MPVOption.ProgramBehavior.scriptOpts)=iinaPlusArgs=\(argsStr)"
+            "mpv_\(MPVOption.Network.referrer)=\(argsStr)"
 		]
 		args = args.compactMap { kvs -> String? in
 			let kv = kvs.split(separator: "=", maxSplits: 1).map(String.init)
@@ -227,7 +227,7 @@ struct YouGetJSON: Unmarshaling, Codable {
             "mpv_" + $0
         }
         args.insert("url=\(url)", at: 0)
-		args.append("mpv_\(MPVOption.ProgramBehavior.scriptOpts)=iinaPlusArgs=\(argsStr)")
+		args.append("mpv_\(MPVOption.Network.referrer)=\(argsStr)")
 		
         args = args.compactMap { kvs -> String? in
             let kv = kvs.split(separator: "=", maxSplits: 1).map(String.init)
