@@ -45,6 +45,7 @@ struct DanmakuEvent: Encodable {
 
 
 protocol DanmakuWSDelegate {
+    @MainActor
     func writeDanmakuEventText(contextName: String, _ string: String)
 }
 
@@ -77,7 +78,7 @@ struct DanmakuWS {
             }
             
             if !str.contains("sendDM") {
-                Log("WriteText to \(id): \(str)")
+                Log("WriteText to [\(id)] \(str)")
             }
         }
     }

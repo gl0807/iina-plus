@@ -566,7 +566,7 @@ class JSPlayerViewController: NSViewController {
               pref.enableDanmaku,
               enableDMButton.state == .on else { return }
         danmaku = Danmaku(re.rawUrl)
-        danmaku?.loadDM()
+        Task { await danmaku?.loadDM() }
         danmaku?.delegate = self
         
         danmakuWS.loadCustomFont()

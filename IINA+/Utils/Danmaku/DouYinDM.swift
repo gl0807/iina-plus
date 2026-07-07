@@ -36,8 +36,6 @@ class DouYinDM: NSObject {
 		ws += "JnNpZ25hdHVyZT0=".base64Decode()
 		ws += value
 		
-		print("dy ws, \(ws)")
-		
 		guard let u = URL(string: ws) else {
 			throw DouYinDMError.signFailed
 		}

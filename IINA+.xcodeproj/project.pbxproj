@@ -31,9 +31,10 @@
 		012738C12C731EEB0031E643 /* TaskExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 012738C02C731EEB0031E643 /* TaskExtension.swift */; };
 		0132B2E32123D05E001EB7DC /* BilibiliCardProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0132B2E22123D05E001EB7DC /* BilibiliCardProgressView.swift */; };
 		0132B2E52123D68D001EB7DC /* BilibiliCardImageBoxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0132B2E42123D68D001EB7DC /* BilibiliCardImageBoxView.swift */; };
+		013394B32FE2CA7100A93713 /* PacketReaderWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 013394B22FE2CA7100A93713 /* PacketReaderWriter.swift */; };
 		0133ED242DD70B0800A12FE6 /* PluginSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0133ED232DD70B0800A12FE6 /* PluginSheetView.swift */; };
-		013598962CEC8EC400B3EFC0 /* Bangumi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 013598952CEC8EC400B3EFC0 /* Bangumi.swift */; };
-		013598982CEC95AE00B3EFC0 /* BilbiliShare.swift in Sources */ = {isa = PBXBuildFile; fileRef = 013598972CEC95AE00B3EFC0 /* BilbiliShare.swift */; };
+		013598962CEC8EC400B3EFC0 /* BiliBangumi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 013598952CEC8EC400B3EFC0 /* BiliBangumi.swift */; };
+		013598982CEC95AE00B3EFC0 /* Bilibili.swift in Sources */ = {isa = PBXBuildFile; fileRef = 013598972CEC95AE00B3EFC0 /* Bilibili.swift */; };
 		013850FA214EA2AA003817CE /* huya.js in Resources */ = {isa = PBXBuildFile; fileRef = 013850F9214EA2AA003817CE /* huya.js */; };
 		01398985210F27A600B7042F /* PreferencesWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01398984210F27A600B7042F /* PreferencesWindowController.swift */; };
 		01398987210F58E500B7042F /* MainWindowTableRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01398986210F58E500B7042F /* MainWindowTableRowView.swift */; };
@@ -67,17 +68,18 @@
 		016792E7212BDEE5003517A7 /* SelectVideoCollectionViewItem.xib in Resources */ = {isa = PBXBuildFile; fileRef = 016792E5212BDEE5003517A7 /* SelectVideoCollectionViewItem.xib */; };
 		016792EE212C421F003517A7 /* SelectVideoCollectionViewItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 016792ED212C421F003517A7 /* SelectVideoCollectionViewItemView.swift */; };
 		01683DD9211869AE0016A886 /* BilibiliLoginViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01683DD8211869AE0016A886 /* BilibiliLoginViewController.swift */; };
-		01683DDB2118905D0016A886 /* Bilibili.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01683DDA2118905D0016A886 /* Bilibili.swift */; };
+		01683DDB2118905D0016A886 /* BiliVideo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01683DDA2118905D0016A886 /* BiliVideo.swift */; };
 		01683DDE211924160016A886 /* BilibiliViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01683DDD211924160016A886 /* BilibiliViewController.swift */; };
 		0169098021CF472F008CDF0E /* SideBarImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0169097F21CF472F008CDF0E /* SideBarImageView.swift */; };
 		016A71ED2A91AA48007B4CA3 /* DanmakuBiliLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 016A71EC2A91AA48007B4CA3 /* DanmakuBiliLive.swift */; };
 		016A71F32A91C50F007B4CA3 /* BiliLiveDMv2.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = 016A71F22A91C50F007B4CA3 /* BiliLiveDMv2.pb.swift */; };
 		016D772427B0CD4300358E2F /* WaitTimer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 016D772327B0CD4300358E2F /* WaitTimer.swift */; };
+		016FAD1C2FE2957B007BA234 /* WebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 016FAD1B2FE2957B007BA234 /* WebSocketClient.swift */; };
 		016FB4C72E559C57003A5960 /* DataModel.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 016FB4C22E559C57003A5960 /* DataModel.xcdatamodeld */; };
 		017F0C502A63C24400043338 /* iina-plugin-danmaku.iinaplgz in Resources */ = {isa = PBXBuildFile; fileRef = 01C248B62A62418E00C92639 /* iina-plugin-danmaku.iinaplgz */; };
 		0182F5DD295F108D00DB8BDD /* DouYinResponse.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0182F5DC295F108D00DB8BDD /* DouYinResponse.pb.swift */; };
 		0184D7122B2025FF00C7901A /* DateExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0184D7112B2025FF00C7901A /* DateExtension.swift */; };
-		018739EE2852135200156F3F /* QQLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 018739ED2852135200156F3F /* QQLive.swift */; };
+		018739EE2852135200156F3F /* QieTV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 018739ED2852135200156F3F /* QieTV.swift */; };
 		01892C7827C0CDA400494AFD /* DouYin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01892C7727C0CDA400494AFD /* DouYin.swift */; };
 		0189533F279FBC470011BAAC /* ColorPickButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0189533E279FBC470011BAAC /* ColorPickButton.swift */; };
 		0189534827A0F5A90011BAAC /* LiveStateTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0189534727A0F5A90011BAAC /* LiveStateTextField.swift */; };
@@ -134,7 +136,6 @@
 		01C0809427BC06EC00E87A8C /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = 01C0809327BC06EC00E87A8C /* SwiftProtobuf */; };
 		01C0809727BC074000E87A8C /* SDWebImage in Frameworks */ = {isa = PBXBuildFile; productRef = 01C0809627BC074000E87A8C /* SDWebImage */; };
 		01C0809A27BC079200E87A8C /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 01C0809927BC079200E87A8C /* Sparkle */; };
-		01C0809D27BC0BC400E87A8C /* SocketRocket in Frameworks */ = {isa = PBXBuildFile; productRef = 01C0809C27BC0BC400E87A8C /* SocketRocket */; };
 		01C248B52A623EC000C92639 /* IINAApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01C248B42A623EC000C92639 /* IINAApp.swift */; };
 		01C248CA2CE480670074A76F /* TokenBucket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01C248C92CE480670074A76F /* TokenBucket.swift */; };
 		01C248CD2CE480F30074A76F /* DequeModule in Frameworks */ = {isa = PBXBuildFile; productRef = 01C248CC2CE480F30074A76F /* DequeModule */; };
@@ -230,9 +231,10 @@
 		012738C02C731EEB0031E643 /* TaskExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskExtension.swift; sourceTree = "<group>"; };
 		0132B2E22123D05E001EB7DC /* BilibiliCardProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BilibiliCardProgressView.swift; sourceTree = "<group>"; };
 		0132B2E42123D68D001EB7DC /* BilibiliCardImageBoxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BilibiliCardImageBoxView.swift; sourceTree = "<group>"; };
+		013394B22FE2CA7100A93713 /* PacketReaderWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacketReaderWriter.swift; sourceTree = "<group>"; };
 		0133ED232DD70B0800A12FE6 /* PluginSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginSheetView.swift; sourceTree = "<group>"; };
-		013598952CEC8EC400B3EFC0 /* Bangumi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bangumi.swift; sourceTree = "<group>"; };
-		013598972CEC95AE00B3EFC0 /* BilbiliShare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BilbiliShare.swift; sourceTree = "<group>"; };
+		013598952CEC8EC400B3EFC0 /* BiliBangumi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiliBangumi.swift; sourceTree = "<group>"; };
+		013598972CEC95AE00B3EFC0 /* Bilibili.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bilibili.swift; sourceTree = "<group>"; };
 		013850F9214EA2AA003817CE /* huya.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = huya.js; sourceTree = "<group>"; };
 		01398984210F27A600B7042F /* PreferencesWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesWindowController.swift; sourceTree = "<group>"; };
 		01398986210F58E500B7042F /* MainWindowTableRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowTableRowView.swift; sourceTree = "<group>"; };
@@ -268,18 +270,19 @@
 		016792E5212BDEE5003517A7 /* SelectVideoCollectionViewItem.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = SelectVideoCollectionViewItem.xib; sourceTree = "<group>"; };
 		016792ED212C421F003517A7 /* SelectVideoCollectionViewItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectVideoCollectionViewItemView.swift; sourceTree = "<group>"; };
 		01683DD8211869AE0016A886 /* BilibiliLoginViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BilibiliLoginViewController.swift; sourceTree = "<group>"; };
-		01683DDA2118905D0016A886 /* Bilibili.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bilibili.swift; sourceTree = "<group>"; };
+		01683DDA2118905D0016A886 /* BiliVideo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiliVideo.swift; sourceTree = "<group>"; };
 		01683DDD211924160016A886 /* BilibiliViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BilibiliViewController.swift; sourceTree = "<group>"; };
 		0169097F21CF472F008CDF0E /* SideBarImageView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SideBarImageView.swift; sourceTree = "<group>"; };
 		016A71EC2A91AA48007B4CA3 /* DanmakuBiliLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DanmakuBiliLive.swift; sourceTree = "<group>"; };
 		016A71F22A91C50F007B4CA3 /* BiliLiveDMv2.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BiliLiveDMv2.pb.swift; sourceTree = "<group>"; };
 		016D772327B0CD4300358E2F /* WaitTimer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WaitTimer.swift; sourceTree = "<group>"; };
+		016FAD1B2FE2957B007BA234 /* WebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClient.swift; sourceTree = "<group>"; };
 		016FB4C32E559C57003A5960 /* Bookmark.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = Bookmark.xcdatamodel; sourceTree = "<group>"; };
 		016FB4C42E559C57003A5960 /* Bookmark v0.2.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "Bookmark v0.2.xcdatamodel"; sourceTree = "<group>"; };
 		016FB4C52E559C57003A5960 /* Bookmark v0.3.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "Bookmark v0.3.xcdatamodel"; sourceTree = "<group>"; };
 		0182F5DC295F108D00DB8BDD /* DouYinResponse.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DouYinResponse.pb.swift; sourceTree = "<group>"; };
 		0184D7112B2025FF00C7901A /* DateExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateExtension.swift; sourceTree = "<group>"; };
-		018739ED2852135200156F3F /* QQLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QQLive.swift; sourceTree = "<group>"; };
+		018739ED2852135200156F3F /* QieTV.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QieTV.swift; sourceTree = "<group>"; };
 		01892C7727C0CDA400494AFD /* DouYin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DouYin.swift; sourceTree = "<group>"; };
 		0189533E279FBC470011BAAC /* ColorPickButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorPickButton.swift; sourceTree = "<group>"; };
 		0189534727A0F5A90011BAAC /* LiveStateTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveStateTextField.swift; sourceTree = "<group>"; };
@@ -352,7 +355,6 @@
 			files = (
 				01C0809A27BC079200E87A8C /* Sparkle in Frameworks */,
 				01C0809127BC05A500E87A8C /* Gzip in Frameworks */,
-				01C0809D27BC0BC400E87A8C /* SocketRocket in Frameworks */,
 				01C0808827BC049500E87A8C /* CryptoSwift in Frameworks */,
 				01B86E1B2E5598CD0099C320 /* SDWebImageSwiftUI in Frameworks */,
 				01E668D22CEA322F008C51E7 /* NIOFoundationCompat in Frameworks */,
@@ -570,10 +572,10 @@
 				018F4F6028126FFD0045B67C /* Huya.swift */,
 				01A183DA2B789728006FA874 /* HuyaUrl.swift */,
 				018F4F6B2817FFF30045B67C /* BiliLive.swift */,
-				01683DDA2118905D0016A886 /* Bilibili.swift */,
-				013598972CEC95AE00B3EFC0 /* BilbiliShare.swift */,
-				013598952CEC8EC400B3EFC0 /* Bangumi.swift */,
-				018739ED2852135200156F3F /* QQLive.swift */,
+				01683DDA2118905D0016A886 /* BiliVideo.swift */,
+				013598972CEC95AE00B3EFC0 /* Bilibili.swift */,
+				013598952CEC8EC400B3EFC0 /* BiliBangumi.swift */,
+				018739ED2852135200156F3F /* QieTV.swift */,
 				01C338B428E47B3F004CC0B8 /* MBGA.swift */,
 				010BEA6B2C4FE2C60061E1DC /* BilibiliDash.swift */,
 			);
@@ -649,6 +651,8 @@
 				01942A3127C345060092FA5A /* DouYinDMResponse.pb.swift */,
 				01DCD2F8259710D800D286C8 /* BilibiliDMMessage.swift */,
 				016A71F22A91C50F007B4CA3 /* BiliLiveDMv2.pb.swift */,
+				016FAD1B2FE2957B007BA234 /* WebSocketClient.swift */,
+				013394B22FE2CA7100A93713 /* PacketReaderWriter.swift */,
 			);
 			path = Danmaku;
 			sourceTree = "<group>";
@@ -750,7 +754,6 @@
 				01C0809327BC06EC00E87A8C /* SwiftProtobuf */,
 				01C0809627BC074000E87A8C /* SDWebImage */,
 				01C0809927BC079200E87A8C /* Sparkle */,
-				01C0809C27BC0BC400E87A8C /* SocketRocket */,
 				01C248CC2CE480F30074A76F /* DequeModule */,
 				01E668CF2CEA322F008C51E7 /* NIOCore */,
 				01E668D12CEA322F008C51E7 /* NIOFoundationCompat */,
@@ -771,7 +774,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastSwiftUpdateCheck = 0940;
-				LastUpgradeCheck = 1510;
+				LastUpgradeCheck = 2650;
 				ORGANIZATIONNAME = xjbeta;
 				TargetAttributes = {
 					01AEC8A620EDFD01001406E8 = {
@@ -810,7 +813,6 @@
 				01C0809227BC06EC00E87A8C /* XCRemoteSwiftPackageReference "swift-protobuf" */,
 				01C0809527BC074000E87A8C /* XCRemoteSwiftPackageReference "SDWebImage" */,
 				01C0809827BC079200E87A8C /* XCRemoteSwiftPackageReference "Sparkle" */,
-				01C0809B27BC0BC400E87A8C /* XCRemoteSwiftPackageReference "SocketRocket" */,
 				010CE8C72A911010002FA130 /* XCRemoteSwiftPackageReference "SwiftBrotli" */,
 				01C248CB2CE480F30074A76F /* XCRemoteSwiftPackageReference "swift-collections" */,
 				01E668CE2CEA322F008C51E7 /* XCRemoteSwiftPackageReference "swift-nio" */,
@@ -911,7 +913,7 @@
 				01AEC8C920F1081C001406E8 /* Identifiers.swift in Sources */,
 				01010125211DBC27002F0F7F /* StringExtension.swift in Sources */,
 				013A05EF2BC8052900AD63DD /* MainWindowTableView.swift in Sources */,
-				013598982CEC95AE00B3EFC0 /* BilbiliShare.swift in Sources */,
+				013598982CEC95AE00B3EFC0 /* Bilibili.swift in Sources */,
 				010BEA6C2C4FE2C60061E1DC /* BilibiliDash.swift in Sources */,
 				0196CB6421214B4200BCD29E /* AdvancedViewController.swift in Sources */,
 				0199489E2742852E00C71708 /* SupportSites.swift in Sources */,
@@ -921,13 +923,14 @@
 				0155C39B2CF481B9004A2042 /* HttpServer.swift in Sources */,
 				0155C39C2CF481B9004A2042 /* NIOHTTPServer.swift in Sources */,
 				019948BF2743DF3600C71708 /* ObjMenuItem.swift in Sources */,
-				01683DDB2118905D0016A886 /* Bilibili.swift in Sources */,
+				01683DDB2118905D0016A886 /* BiliVideo.swift in Sources */,
 				0133ED242DD70B0800A12FE6 /* PluginSheetView.swift in Sources */,
 				0182F5DD295F108D00DB8BDD /* DouYinResponse.pb.swift in Sources */,
 				01260178211ABD3B00C9C639 /* VideoViewsFormatter.swift in Sources */,
 				016A71F32A91C50F007B4CA3 /* BiliLiveDMv2.pb.swift in Sources */,
 				01C248CA2CE480670074A76F /* TokenBucket.swift in Sources */,
 				0195C0C22E47851E00E8BB36 /* BiliLoginSheetView.swift in Sources */,
+				016FAD1C2FE2957B007BA234 /* WebSocketClient.swift in Sources */,
 				014B447E210069FF00E7AA6A /* BookmarkExtension.swift in Sources */,
 				01B881372C4128EA00E44B97 /* BilibiliDynamicManger.swift in Sources */,
 				01479CD5210AFACB0046AAAD /* AddBookmarkViewController.swift in Sources */,
@@ -941,7 +944,7 @@
 				015C19DC218B0D4F003B2F3A /* VideoGetStructs.swift in Sources */,
 				013CE8DE2184459E000271FB /* Danmaku.swift in Sources */,
 				0195C0BE2E476C3D00E8BB36 /* Color+NSColor.swift in Sources */,
-				013598962CEC8EC400B3EFC0 /* Bangumi.swift in Sources */,
+				013598962CEC8EC400B3EFC0 /* BiliBangumi.swift in Sources */,
 				0101012B211DCE1C002F0F7F /* SidebarTableCellView.swift in Sources */,
 				0184D7122B2025FF00C7901A /* DateExtension.swift in Sources */,
 				011E4D3321E99CA400997633 /* Log.swift in Sources */,
@@ -957,6 +960,7 @@
 				01AEC8BC20EDFFBD001406E8 /* YouGetJSON.swift in Sources */,
 				01B82B3928EEF9D300928F61 /* SelectVideoCollectionViewHeader.swift in Sources */,
 				011329262C06252300ED0D78 /* AboutViewController.swift in Sources */,
+				013394B32FE2CA7100A93713 /* PacketReaderWriter.swift in Sources */,
 				0132B2E52123D68D001EB7DC /* BilibiliCardImageBoxView.swift in Sources */,
 				01683DD9211869AE0016A886 /* BilibiliLoginViewController.swift in Sources */,
 				019F584F2AF1450800235BAE /* JSPlayerURLSchemeHandler.swift in Sources */,
@@ -978,7 +982,7 @@
 				01010137211EFA75002F0F7F /* SuggestionsTableView.swift in Sources */,
 				016D772427B0CD4300358E2F /* WaitTimer.swift in Sources */,
 				01E6A09C211AD62800C6EF98 /* VideoDurationFormatter.swift in Sources */,
-				018739EE2852135200156F3F /* QQLive.swift in Sources */,
+				018739EE2852135200156F3F /* QieTV.swift in Sources */,
 				0169098021CF472F008CDF0E /* SideBarImageView.swift in Sources */,
 				0132B2E32123D05E001EB7DC /* BilibiliCardProgressView.swift in Sources */,
 				016792E1212BBB43003517A7 /* SelectVideoViewController.swift in Sources */,
@@ -1082,6 +1086,7 @@
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -1143,6 +1148,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
@@ -1168,7 +1174,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 0.8.17;
+				MARKETING_VERSION = 0.8.18;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.xjbeta.iina-plus";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1195,7 +1201,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 0.8.17;
+				MARKETING_VERSION = 0.8.18;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.xjbeta.iina-plus";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1317,14 +1323,6 @@
 				minimumVersion = 2.0.0;
 			};
 		};
-		01C0809B27BC0BC400E87A8C /* XCRemoteSwiftPackageReference "SocketRocket" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/xjbeta/SocketRocket/";
-			requirement = {
-				branch = dev;
-				kind = branch;
-			};
-		};
 		01C248CB2CE480F30074A76F /* XCRemoteSwiftPackageReference "swift-collections" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/apple/swift-collections.git";
@@ -1393,11 +1391,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 01C0809827BC079200E87A8C /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
-		};
-		01C0809C27BC0BC400E87A8C /* SocketRocket */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 01C0809B27BC0BC400E87A8C /* XCRemoteSwiftPackageReference "SocketRocket" */;
-			productName = SocketRocket;
 		};
 		01C248CC2CE480F30074A76F /* DequeModule */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -306,16 +306,6 @@ struct DouyuEncryption: Unmarshaling {
     }
 }
 
-struct DouyuVideoSelector: VideoSelector {
-    let site = SupportSites.douyu
-    let index: Int
-    let title: String
-    let id: String
-    let url: String
-    var isLiving: Bool
-    let coverUrl: URL?
-}
-
 struct DouyuEventRoom: Unmarshaling {
     let roomId: String
     let text: String

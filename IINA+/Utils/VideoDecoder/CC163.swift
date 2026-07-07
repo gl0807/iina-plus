@@ -192,17 +192,6 @@ struct CC163ZTInfo {
     var isLiving: Bool = false
 }
 
-struct CC163VideoSelector: VideoSelector {
-    let site = SupportSites.cc163
-    let index: Int
-    let title: String
-    let ccid: String
-    let isLiving: Bool
-    let url: String
-    let id: String
-    let coverUrl: URL? = nil
-}
-
 struct CC163ChannelInfo: Unmarshaling, LiveInfo {
     var title: String
     var name: String

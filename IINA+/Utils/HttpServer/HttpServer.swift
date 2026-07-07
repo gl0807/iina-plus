@@ -123,6 +123,9 @@ class HttpServer: NSObject {
         danmukuObservers.forEach {
             NotificationCenter.default.removeObserver($0)
         }
+        Task {
+            await nioServer.stop()
+        }
     }
     
     

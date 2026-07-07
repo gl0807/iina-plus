@@ -1,5 +1,5 @@
 //
-//  Bangumi.swift
+//  BiliBangumi.swift
 //  IINA+
 //
 //  Created by xjbeta on 2024/11/19.
@@ -10,9 +10,8 @@ import Foundation
 import Alamofire
 import Marshal
 
-actor Bangumi: SupportSiteProtocol {
+actor BiliBangumi: SupportSiteProtocol {
     
-    let biliShare = BilibiliShare()
     
     struct BangumiID {
         let epId: Int
@@ -37,11 +36,11 @@ actor Bangumi: SupportSiteProtocol {
     }
     
     func getBangumi(_ url: String) async throws -> YouGetJSON {
-        await biliShare.setBilibiliQuality()
+        await Bilibili.shared.setBilibiliQuality()
         
         let json = try await bilibiliPrepareID(url)
         
-        return try await biliShare.bilibiliPlayUrl(yougetJson: json, true)
+        return try await Bilibili.shared.bilibiliPlayUrl(yougetJson: json, true)
     }
     
     func bilibiliPrepareID(_ url: String) async throws -> YouGetJSON {
@@ -80,7 +79,7 @@ actor Bangumi: SupportSiteProtocol {
     
     func getBilibiliHTMLDatas(_ url: String, isBangumi: Bool = false) async throws -> (playInfoData: Data, initialStateData: Data, bangumiData: Data) {
         let headers = HTTPHeaders(["Referer": "https://www.bilibili.com/",
-                                   "User-Agent": biliShare.bangumiUA])
+                                   "User-Agent": Bilibili.shared.bangumiUA])
 
         let re = try await AF.request(url, headers: headers).serializingString().value
         
@@ -147,8 +146,8 @@ struct BangumiEpList: Unmarshaling {
             let u: String = try object.value(for: "cover")
             cover = u.https()
             
-            let d: Int? = try? object.value(for: "duration")
-            duration = d ?? 0 / 1000
+            let d = (try? object.value(for: "duration")) ?? 0
+            duration = d / 1000
             
             fullTitle = try object.value(for: "share_copy")
         }
@@ -181,13 +180,16 @@ struct BangumiEpList: Unmarshaling {
         section = (try? object.value(for: "result.section")) ?? []
     }
     
-    var epVideoSelectors: [BiliVideoSelector] {
-        get {
-            var list = episodes.map(BiliVideoSelector.init)
-            list.enumerated().forEach {
-                list[$0.offset].index = $0.offset + 1
-            }
-            return list
+    var epVideoSelectors: [VideoTreeNode] {
+        episodes.enumerated().map { (offset, ep) in
+            VideoTreeNode(
+                site: .bangumi,
+                index: offset + 1,
+                title: ep.title,
+                id: "\(ep.id)",
+                bvid: ep.bvid,
+                duration: ep.duration,
+                longTitle: ep.longTitle)
         }
     }
 }
@@ -200,25 +202,29 @@ struct BangumiList: Unmarshaling {
     let epList: [BangumiInfo.BangumiEp]
     let sections: [BangumiInfo.BangumiSections]
 
-    var epVideoSelectors: [BiliVideoSelector] {
-        get {
-            var list = epList.map(BiliVideoSelector.init)
-            list.enumerated().forEach {
-                list[$0.offset].index = $0.offset + 1
-            }
-            return list
+    var epVideoSelectors: [VideoTreeNode] {
+        epList.enumerated().map { (offset, ep) in
+            VideoTreeNode(
+                site: .bangumi,
+                index: offset + 1,
+                title: ep.title,
+                id: "\(ep.id)",
+                bvid: ep.bvid,
+                duration: ep.duration,
+                longTitle: ep.longTitle)
         }
     }
 
-    var selectionVideoSelectors: [BiliVideoSelector] {
-        get {
-            var list = sections.compactMap {
-                $0.epList.first
-            }.map(BiliVideoSelector.init)
-            list.enumerated().forEach {
-                list[$0.offset].index = $0.offset + 1
-            }
-            return list
+    var selectionVideoSelectors: [VideoTreeNode] {
+        sections.compactMap { $0.episodes.first }.enumerated().map { (offset, ep) in
+            VideoTreeNode(
+                site: .bangumi,
+                index: offset + 1,
+                title: ep.title,
+                id: "\(ep.id)",
+                bvid: ep.bvid,
+                duration: ep.duration,
+                longTitle: ep.longTitle)
         }
     }
 

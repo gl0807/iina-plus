@@ -9,104 +9,147 @@
 
 
 import Foundation
-@preconcurrency import NIO
-@preconcurrency import NIOHTTP1
-@preconcurrency import NIOWebSocket
+import NIO
+import NIOHTTP1
 
+enum HTTPHandler {
 
-@preconcurrency
-final class HTTPHandler: ChannelInboundHandler, RemovableChannelHandler {
-    typealias InboundIn = HTTPServerRequestPart
-    typealias OutboundOut = HTTPServerResponsePart
-    
-    private var currentURL = ""
-    private var parameters = [String: String]()
-    private var currentMethod: HTTPMethod = .UNBIND
-    
-    func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        let reqPart = self.unwrapInboundIn(data)
-        switch reqPart {
-        case .head(let head):
-            let u = head.uri
-            
-            let up = u.split(separator: "?", maxSplits: 1).map(String.init)
-            
-            if up.count == 2 {
-                currentURL = up[0]
-                currentMethod = head.method
-                parameters = parameters(up[1])
-            } else if up.count == 1, head.method == .GET {
-                currentURL = up[0]
-                currentMethod = head.method
-            } else {
-                currentURL = ""
-                currentMethod = .UNBIND
-                parameters = [:]
-            }
-        case .body:
-            break
-        case .end:
-            Task {
-                await handleRequest(context: context)
+    static func handleChannel(
+        _ channel: NIOAsyncChannel<HTTPServerRequestPart, HTTPPart<HTTPResponseHead, ByteBuffer>>
+    ) async throws {
+        try await channel.executeThenClose { inbound, outbound in
+            var currentURL = ""
+            var parameters = [String: String]()
+            var currentMethod: HTTPMethod = .UNBIND
+
+            for try await part in inbound {
+                switch part {
+                case .head(let head):
+                    let u = head.uri
+                    let up = u.split(separator: "?", maxSplits: 1).map(String.init)
+
+                    if up.count == 2 {
+                        currentURL = up[0]
+                        currentMethod = head.method
+                        parameters = parseParameters(up[1])
+                    } else if up.count == 1, head.method == .GET {
+                        currentURL = up[0]
+                        currentMethod = head.method
+                    } else {
+                        currentURL = ""
+                        currentMethod = .UNBIND
+                        parameters = [:]
+                    }
+
+                    Log("HTTP \(head.method) \(currentURL)")
+
+                case .body:
+                    break
+
+                case .end:
+                    try await handleRequest(
+                        url: currentURL,
+                        method: currentMethod,
+                        parameters: parameters,
+                        outbound: outbound
+                    )
+                }
             }
         }
     }
-    
-    
-    private func handleRequest(context: ChannelHandlerContext) async {
-        switch (currentURL, currentMethod) {
+
+    // MARK: - Request Handling
+
+    private static func handleRequest(
+        url: String,
+        method: HTTPMethod,
+        parameters: [String: String],
+        outbound: NIOAsyncChannelOutboundWriter<HTTPPart<HTTPResponseHead, ByteBuffer>>
+    ) async throws {
+        switch (url, method) {
         case ("/video/danmakuurl", .POST):
             guard let url = parameters["url"],
-                  let json = try? await self.decode(url),
+                  let json = try? await decode(url),
                   let key = json.videos.first?.key,
                   let data = json.danmakuUrl(key)?.data(using: .utf8) else {
-                sendBadRequest(context: context)
+                try await sendBadRequest(outbound: outbound)
                 return
             }
-            sendResponse(context: context, bodyData: data)
+            try await sendResponse(outbound: outbound, bodyData: data)
+
         case ("/video/iinaurl", .POST):
             var type = IINAUrlType.normal
             if let tStr = parameters["type"],
                let t = IINAUrlType(rawValue: tStr) {
                 type = t
             }
-            
+
             guard let url = parameters["url"],
-                  let json = try? await self.decode(url),
+                  let json = try? await decode(url),
                   let key = json.videos.first?.key,
                   let data = json.iinaURLScheme(key, type: type)?.data(using: .utf8) else {
-                sendBadRequest(context: context)
+                try await sendBadRequest(outbound: outbound)
                 return
             }
-            sendResponse(context: context, bodyData: data)
+            try await sendResponse(outbound: outbound, bodyData: data)
+
         case ("/video", .GET):
             let encoder = JSONEncoder()
             encoder.outputFormatting = .prettyPrinted
             let key = parameters["key"] ?? ""
-            
+
             guard let url = parameters["url"],
-                  let json = try? await self.decode(url, key: key),
+                  let json = try? await decode(url, key: key),
                   let data = parameters["pluginAPI"] == nil ? try? encoder.encode(json) : json.iinaPlusArgsString(key)?.data(using: .utf8) else {
-                sendBadRequest(context: context)
+                try await sendBadRequest(outbound: outbound)
                 return
             }
-            sendResponse(context: context, bodyData: data)
-        case (let url, .GET) where url.starts(with: "/dash/"):
-            break
+            try await sendResponse(outbound: outbound, bodyData: data)
+
         case ("/danmaku/test.htm", .GET):
             guard let path = Bundle.main.path(forResource: "test", ofType: "htm"),
                   let data = FileManager.default.contents(atPath: path) else { return }
-            sendResponse(context: context, bodyData: data)
-        case (_, .GET) where currentURL.starts(with: "/video.mp4"):
+            try await sendResponse(outbound: outbound, bodyData: data)
+
+        case (_, .GET) where url.starts(with: "/video.mp4"):
             guard let path = Bundle.main.path(forResource: "empty", ofType: "m4a"),
                   let data = FileManager.default.contents(atPath: path) else { return }
-            sendResponse(context: context, bodyData: data)
+            try await sendResponse(outbound: outbound, bodyData: data)
+
         default:
-            sendBadRequest(context: context)
+            try await sendBadRequest(outbound: outbound)
         }
     }
-    
-    private func parameters(_ string: String) -> [String: String] {
+
+    // MARK: - Helpers
+
+    private static func decode(_ url: String, key: String = "") async throws -> YouGetJSON? {
+        let videoDecoder = VideoDecoder()
+        var json = try await videoDecoder.decodeUrl(url)
+        json = try await videoDecoder.prepareVideoUrl(json, key)
+        return json
+    }
+
+    private static func sendResponse(
+        outbound: NIOAsyncChannelOutboundWriter<HTTPPart<HTTPResponseHead, ByteBuffer>>,
+        bodyData: Data
+    ) async throws {
+        var newHeaders = HTTPHeaders()
+        newHeaders.add(name: "Content-Length", value: "\(bodyData.count)")
+        newHeaders.add(name: "Connection", value: "close")
+
+        let head = HTTPResponseHead(version: .http1_1, status: .ok, headers: newHeaders)
+        var buffer = ByteBufferAllocator().buffer(capacity: bodyData.count)
+        buffer.writeBytes(bodyData)
+
+        try await outbound.write(contentsOf: [
+            .head(head),
+            .body(buffer),
+            .end(nil),
+        ])
+    }
+
+    private static func parseParameters(_ string: String) -> [String: String] {
         let requestBodys = string.split(separator: "&")
         var parameters = [String: String]()
         requestBodys.forEach {
@@ -116,40 +159,15 @@ final class HTTPHandler: ChannelInboundHandler, RemovableChannelHandler {
         }
         return parameters
     }
-    
-    private func decode(_ url: String, key: String = "") async throws -> YouGetJSON? {
-        let videoDecoder = VideoDecoder()
-        var json = try await videoDecoder.decodeUrl(url)
-        json = try await videoDecoder.prepareVideoUrl(json, key)
-        return json
-    }
-    
 
-    private func sendResponse(context: ChannelHandlerContext, bodyData: Data) {
-        context.eventLoop.execute {
-            let responseHeaders: HTTPHeaders
-            
-            var newHeaders = HTTPHeaders()
-            newHeaders.add(name: "Content-Length", value: "\(bodyData.count)")
-            newHeaders.add(name: "Connection", value: "close")
-            responseHeaders = newHeaders
-            
-            let head = HTTPResponseHead(version: .http1_1, status: .ok, headers: responseHeaders)
-            var buffer = context.channel.allocator.buffer(capacity: bodyData.count)
-            buffer.writeBytes(bodyData)
-            
-            context.write(self.wrapOutboundOut(.head(head)), promise: nil)
-            context.write(self.wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
-            context.writeAndFlush(self.wrapOutboundOut(.end(nil)), promise: nil)
-        }
-    }
-    
-    private func sendBadRequest(context: ChannelHandlerContext) {
-        context.eventLoop.execute {
-            let headers = HTTPHeaders([("Connection", "close"), ("Content-Length", "0")])
-            let head = HTTPResponseHead(version: .http1_1, status: .badRequest, headers: headers)
-            context.write(self.wrapOutboundOut(.head(head)), promise: nil)
-            context.writeAndFlush(self.wrapOutboundOut(.end(nil)), promise: nil)
-        }
+    private static func sendBadRequest(
+        outbound: NIOAsyncChannelOutboundWriter<HTTPPart<HTTPResponseHead, ByteBuffer>>
+    ) async throws {
+        let headers = HTTPHeaders([("Connection", "close"), ("Content-Length", "0")])
+        let head = HTTPResponseHead(version: .http1_1, status: .badRequest, headers: headers)
+        try await outbound.write(contentsOf: [
+            .head(head),
+            .end(nil),
+        ])
     }
 }

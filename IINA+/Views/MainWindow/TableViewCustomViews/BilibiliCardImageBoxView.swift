@@ -110,7 +110,7 @@ class BilibiliCardImageBoxView: NSView {
                 let id = aid
 				Task {
 					do {
-						let pvideo = try await Processes.shared.videoDecoder.bilibili.getPvideo(id)
+						let pvideo = try await Bilibili.shared.getPvideo(id)
                         pImages = await loadPImages(pvideo)
 						pAid = id
 						updatePreview(.start, per: previewPercent)

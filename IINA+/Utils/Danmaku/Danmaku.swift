@@ -9,9 +9,8 @@
 import Cocoa
 import Alamofire
 import Marshal
-import SocketRocket
 import Gzip
-@preconcurrency import JavaScriptCore
+import JavaScriptCore
 import CryptoSwift
 import Marshal
 import SDWebImage
@@ -26,7 +25,7 @@ protocol DanmakuSubDelegate {
 
 @MainActor
 class Danmaku: NSObject {
-    var socket: SRWebSocket? = nil
+    var socket: WebSocketClient? = nil
     var liveSite: SupportSites = .unsupported
     var url = ""
     var id = ""
@@ -78,7 +77,11 @@ class Danmaku: NSObject {
     
     var douyinDM: DouYinDM?
     
+    let qieTVDMServer = URL(string: "wss://node-18-danmaku.qiecdn.com/sub")
+    var qieTVSeq: UInt32 = 0
+    var qieTVRoomID: String = ""
     
+
     init(_ url: String) {
         liveSite = .init(url: url)
         self.url = url
@@ -98,9 +101,9 @@ class Danmaku: NSObject {
     func stop() {
 		Log("Stop Danmaku")
 		
-        socket?.close()
+        Task { await socket?.close() }
         socket = nil
-        timer?.cancel()
+        stopHeartbeat()
         douyuSavedData = Data()
         heartBeatCount = 0
         
@@ -110,18 +113,16 @@ class Danmaku: NSObject {
 		}
     }
 
-	func loadDM() {
-		Task {
-			do {
-				try await loadDanmaku()
-			} catch let error {
-				Log("loadDM failed, \(error)")
-			}
+	func loadDM() async {
+		do {
+			try await loadDanmaku()
+		} catch let error {
+			Log("loadDM failed, \(error)")
 		}
 	}
 	
     
-    func loadDanmaku() async throws {
+	func loadDanmaku() async throws {
         guard let url = URL(string: self.url) else { return }
         let roomID = url.lastPathComponent
         let videoDecoder = Processes.shared.videoDecoder
@@ -131,16 +132,15 @@ class Danmaku: NSObject {
 			let rid = try await self.bililiveRid(roomID)
 			let token = try await bililiveToken(rid)
 			let emoticons = try await bililiveEmoticons(rid)
-			let uid = try await Bilibili().getUid()
+			let uid = try await Bilibili.shared.getUid()
 			
 			await MainActor.run {
 				biliLiveIDs.rid = rid
 				biliLiveIDs.token = token
 				bililiveEmoticons = emoticons
 				biliLiveIDs.uid = uid
-				socket = .init(url: biliLiveServer!)
-				socket?.delegate = self
-				socket?.open()
+				let ws = WebSocketClient()
+				runEventLoop(ws, url: biliLiveServer!)
 			}
         case .douyu:
             
@@ -162,35 +162,32 @@ class Danmaku: NSObject {
 				} else {
 					self.huyaAnchorUid = try roomInfo.value(for: "id")
 				}
-				
-				self.socket = .init(url: self.huyaServer!)
-				self.socket?.delegate = self
-				self.socket?.open()
+
+				let ws = WebSocketClient()
+				runEventLoop(ws, url: self.huyaServer!)
 			}
 
-        case .douyin:
-			await MainActor.run {
-				douyinDM = .init()
-				douyinDM?.requestPrepared = { ur in
-					self.socket = .init(urlRequest: ur)
-					self.socket?.delegate = self
-					self.socket?.open()
-				}
-				douyinDM?.start(self.url)
-				socketClosed = false
-				startTimer()
+		case .douyin:
+		await MainActor.run {
+			douyinDM = .init()
+			douyinDM?.requestPrepared = { request in
+				let ws = WebSocketClient()
+				self.runEventLoop(ws, request: request)
 			}
+			douyinDM?.start(self.url)
+			socketClosed = false
+			startHeartbeat()
+			}
+		case .qieTV:
+			let ws = WebSocketClient()
+			runEventLoop(ws, url: qieTVDMServer!)
         default:
             break
         }
     }
     
-    func sendMsg(_ data: Data) {
-        do {
-            try socket?.send(data: data)
-        } catch let error {
-            Log("sendMsg error \(error)")
-        }
+    func sendMsg(_ data: Data) async {
+        try? await socket?.send(data: data)
     }
     
     private func sendDM(_ event: DanmakuEvent) {
@@ -205,9 +202,8 @@ class Danmaku: NSObject {
     private func initDouYuSocket(_ roomID: String) {
         Log("initDouYuSocket")
         douyuRoomID = roomID
-        socket = .init(url: self.douyuServer!)
-        socket?.delegate = self
-        socket?.open()
+		let ws = WebSocketClient()
+		runEventLoop(ws, url: self.douyuServer!)
     }
     
     private func douyuSocketFormatter(_ str: String) -> Data {
@@ -218,447 +214,395 @@ class Danmaku: NSObject {
     }
     
     
-    private var timer: DispatchSourceTimer?
+    private var heartbeatTask: Task<Void, Never>?
     
-    private let timerQueue = DispatchQueue(label: "com.xjbeta.iina+.WebSocketKeepLive")
-    
-    private func startTimer() {
-        timer?.cancel()
-        timer = nil
-        timer = DispatchSource.makeTimerSource(flags: [], queue: .main)
-        guard let timer = timer else {
-            return
-        }
-        
-        let interval: DispatchTimeInterval = liveSite == .douyin ? .seconds(15) : .seconds(30)
-        
-        timer.schedule(deadline: .now(), repeating: interval)
-        timer.setEventHandler {
-            do {
-                switch self.liveSite {
-                case .biliLive:
-                    let data = self.pack(format: "NnnNN", values: [16, 16, 1, 2, 1]) as Data
-                    try self.socket?.send(data: data)
-                case .douyu:
-                    //                        let keeplive = "type@=keeplive/tick@=\(Int(Date().timeIntervalSince1970))/"
-                    let keeplive = "type@=mrkl/"
-                    let data = self.douyuSocketFormatter(keeplive)
-                    try self.socket?.send(data: data)
-                case .huya:
-                    let result = self.huyaJSContext?.evaluateScript("new Uint8Array(sendHeartBeat());")
-                    let data = Data(result?.toArray() as? [UInt8] ?? [])
-                    self.sendMsg(data)
-                    
-                case .douyin:
-                    guard let socket = self.socket else { return }
-                    if self.socketClosed {
-                        Log("Reconnect douyin dm")
-                        self.stop()
-                        self.loadDM()
-                        return
+    @MainActor
+    private func startHeartbeat() {
+        heartbeatTask?.cancel()
+        let interval: Duration = liveSite == .douyin ? .seconds(15) : .seconds(30)
+        heartBeatCount = 0
+        heartbeatTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: interval)
+                guard let self else { return }
+                do {
+                    switch await self.liveSite {
+                    case .biliLive:
+                        let data = await self.pack(format: "NnnNN", values: [16, 16, 1, 2, 1]) as Data
+                        try await self.socket?.send(data: data)
+                    case .douyu:
+                        let keeplive = "type@=mrkl/"
+                        let data = self.douyuSocketFormatter(keeplive)
+                        try await self.socket?.send(data: data)
+                    case .huya:
+                        let result = await self.huyaJSContext?.evaluateScript("new Uint8Array(sendHeartBeat());")
+                        let data = Data(result?.toArray() as? [UInt8] ?? [])
+                        await self.sendMsg(data)
+                    case .douyin:
+                        guard await self.socket != nil else { return }
+                        if await self.socketClosed {
+                            Log("Reconnect douyin dm")
+                            await self.stop()
+                            await self.loadDM()
+                            return
+                        }
+                        var pf = Douyin_PushFrame()
+                        pf.payloadType = "hb"
+                        try await self.socket?.send(data: pf.serializedData())
+                    case .qieTV:
+                        self.qieTVSeq += 1
+						try await self.socket?.send(data: self.qieTVPacket(op: 2, body: Data()))
+                    default:
+                        try await self.socket?.sendPing()
                     }
-                    var pf = Douyin_PushFrame()
-                    pf.payloadType = "hb"
-                    try socket.sendPing(pf.serializedData())
-                default:
-                    try self.socket?.sendPing(Data())
-                }
-                self.heartBeatCount += 1
-                if self.heartBeatCount > 5 {
-                    self.stop()
-                    self.loadDM()
-                    Log("HeartBeatCount exceed, restart.")
-                }
-            } catch let error {
-                if (error as NSError).code == 2134 {
-                    self.stop()
-                    self.loadDM()
-                    Log("Danmaku Error 2134, restart.")
-                } else {
-                    Log(error)
+                    if liveSite != .douyin {
+                        await self.incrementHeartbeat()
+                    }
+                } catch {
+                    if (error as NSError).code == 2134 {
+                        Log("Danmaku Error 2134, restart.")
+                        await self.stop()
+                        await self.loadDM()
+                    } else {
+                        Log("Heartbeat error: \(error)")
+                    }
                 }
             }
         }
-        timer.resume()
     }
-    
-}
+
+    @MainActor
+    private func incrementHeartbeat() async {
+        heartBeatCount += 1
+        if heartBeatCount > 5 {
+            Log("HeartBeat no response, restart: \(url)")
+            stop()
+            await loadDM()
+        }
+    }
+
+    private func stopHeartbeat() {
+        heartbeatTask?.cancel()
+        heartbeatTask = nil
+    }
 
 
-extension Danmaku: SRWebSocketDelegate {
-    func webSocketDidOpen(_ webSocket: SRWebSocket) {
-        Log("webSocketDidOpen")
+	@MainActor
+	private func runEventLoop(_ ws: WebSocketClient, url: URL) {
+		var request = URLRequest(url: url)
+		request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3.1 Safari/605.1.15", forHTTPHeaderField: "User-Agent")
+		runEventLoop(ws, request: request)
+	}
 
-        switch liveSite {
-        case .biliLive:
+	@MainActor
+	private func runEventLoop(_ ws: WebSocketClient, request: URLRequest) {
+		socket = ws
+		Task { @MainActor in
+			for await event in await ws.open(request) {
+				switch event {
+				case .didOpen:
+					await handleWebSocketOpen()
+				case .message(let data):
+					await handleWebSocketMessage(data)
+				case .close(_, let reason, _):
+					Log("webSocketdidClose \(reason ?? "")")
+					switch liveSite {
+					case .biliLive:
+						stopHeartbeat()
+					case .douyin:
+						socketClosed = true
+					default:
+						break
+					}
+					delegate?.send(.init(method: .liveDMServer, text: "error"), sender: self)
+				case .error(let desc):
+					Log(desc)
+					switch liveSite {
+					case .douyin:
+						socketClosed = true
+					default:
+						break
+					}
+					delegate?.send(.init(method: .liveDMServer, text: "error"), sender: self)
+				}
+			}
+		}
+	}
+	
+
+	@MainActor
+	private func handleWebSocketOpen() async {
+		Log("webSocketDidOpen")
+		switch liveSite {
+		case .biliLive:
 			let buvid = UUID().uuidString + "\(Int.random(in: 10000...90000))" + "infoc"
 			let key = biliLiveIDs.token
-			
 			let json = "{\"uid\":\(biliLiveIDs.uid),\"roomid\":\(biliLiveIDs.rid),\"protover\":2,\"buvid\":\"\(buvid)\",\"platform\":\"web\",\"type\":2,\"key\":\"\(key)\"}"
-						
-            //0000 0060 0010 0001 0000 0007 0000 0001
-            let data = pack(format: "NnnNN", values: [json.count + 16, 16, 1, 7, 1])
-            data.append(json.data(using: .utf8)!)
-            sendMsg(data as Data)
-            startTimer()
-        case .huya:
-            let id = huyaAnchorUid
-            let result = huyaJSContext?.evaluateScript("""
+			let data = pack(format: "NnnNN", values: [json.count + 16, 16, 1, 7, 1])
+			data.append(json.data(using: .utf8)!)
+			await sendMsg(data as Data)
+			startHeartbeat()
+		case .huya:
+			let id = huyaAnchorUid
+			let result = huyaJSContext?.evaluateScript("""
 new Uint8Array(sendRegisterGroups(["live:\(id)", "chat:\(id)"]));
 """)
-
-            let data = Data(result?.toArray() as? [UInt8] ?? [])
-            sendMsg(data)
-            startTimer()
-        case .douyu:
-            let loginreq = "type@=loginreq/roomid@=\(douyuRoomID)/"
-            let joingroup = "type@=joingroup/rid@=\(douyuRoomID)/gid@=-9999/"
-
-
-            sendMsg(douyuSocketFormatter(loginreq))
-            sendMsg(douyuSocketFormatter(joingroup))
-            startTimer()
-        default:
-            break
-        }
-    }
-    
-    func webSocket(_ webSocket: SRWebSocket, didCloseWithCode code: Int, reason: String?, wasClean: Bool) {
-        Log("webSocketdidClose \(reason ?? "")")
-        switch liveSite {
-        case .biliLive:
-            timer?.cancel()
-            timer = nil
-        case .douyin:
-            socketClosed = true
-        default:
-            break
-        }
-        delegate?.send(.init(method: .liveDMServer, text: "error"), sender: self)
-    }
-	
-	func webSocket(_ webSocket: SRWebSocket, didReceivePong pongData: Data?) {
-		switch liveSite {
-		case .douyin:
-			guard let data = pongData,
-				  let str = String(data: data, encoding: .utf8),
-				  str.hasSuffix("hb") else {
-				return
-			}
-			
-			heartBeatCount = 0
+			let data = Data(result?.toArray() as? [UInt8] ?? [])
+			await sendMsg(data)
+			startHeartbeat()
+		case .douyu:
+			let loginreq = "type@=loginreq/roomid@=\(douyuRoomID)/"
+			let joingroup = "type@=joingroup/rid@=\(douyuRoomID)/gid@=-9999/"
+			await sendMsg(douyuSocketFormatter(loginreq))
+			await sendMsg(douyuSocketFormatter(joingroup))
+			startHeartbeat()
+		case .qieTV:
+			qieTVSeq = 1
+			let rid = URL(string: self.url)?.lastPathComponent ?? ""
+			qieTVRoomID = rid
+			let json = """
+			{"uid":0,"token":"","roomId":"online://\(rid)","deviceId":"\(UUID().uuidString)","platform":"pc_web","unAccepts":[]}
+			"""
+			await sendMsg(qieTVPacket(op: 7, body: json.data(using: .utf8)!))
 		default:
 			break
 		}
 	}
-    
-    func webSocket(_ webSocket: SRWebSocket, didReceiveMessageWith data: Data) {
-        switch liveSite {
-        case .biliLive:
-            //            0000 0234
-            //            0-4 json length + head
-            if data.count == 20 {
-                Log("Danmaku HeartBeatRsp")
-                heartBeatCount = 0
-                return
-            } else if data.count == 26 {
-                Log("bililive connect success")
-                self.delegate?.send(.init(method: .liveDMServer, text: ""), sender: self)
-                return
-            }
-            
-            func checkIntegrity(_ data: Data) -> Data? {
-                var d = data
-                let head = d.subdata(in: 0..<4)
-                let count = Int(CFSwapInt32(head.withUnsafeBytes { $0.load(as: UInt32.self) }))
-                guard count == data.count else {
-                    Log("BiliLive Checking for integrity failed.")
-                    return nil
-                }
-                d = d.subdata(in: 16..<count)
-				
-                do {
+
+	@MainActor
+	private func handleWebSocketMessage(_ data: Data) {
+		switch liveSite {
+		case .biliLive:
+			if data.count == 20 {
+				heartBeatCount = 0
+				return
+			} else if data.count == 26 {
+				Log("bililive connect success")
+				self.delegate?.send(.init(method: .liveDMServer, text: ""), sender: self)
+				return
+			}
+
+			func checkIntegrity(_ data: Data) -> Data? {
+				var d = data
+				var r = PacketReader(data: d)
+				guard let raw = r.readUInt32() else { return nil }
+				let count = Int(raw)
+				guard count == data.count else {
+					Log("BiliLive Checking for integrity failed.")
+					return nil
+				}
+				d = d.subdata(in: 16..<count)
+				do {
 					return try d.gunzipped()
-                } catch let error {
-                    if let str = String(data: data, encoding: .utf8), str.contains("cmd") {
-                        return nil
-                    } else if let str = String(data: d, encoding: .utf8), str.contains("cmd") {
-                        return nil
-                    } else {
-                        Log("decode bililive msg error \(error)")
-                    }
-                }
-                return nil
-            }
-			
-            
-            var datas: [Data] = []
-            guard var d = checkIntegrity(data) else { return }
-            while d.count > 20 {
-                let head = d.subdata(in: 0..<4)
-                let endIndex = Int(CFSwapInt32(head.withUnsafeBytes { $0.load(as: UInt32.self) }))
-                if endIndex <= d.endIndex {
-                    datas.append(d.subdata(in: 16..<endIndex))
-                    d = d.subdata(in: endIndex..<d.endIndex)
-                } else {
-                    d.removeAll()
-                }
-            }
-            
-            let dms = try? datas.compactMap(decodeBiliLiveDM(_:))
-            if let dms, dms.count > 0 {
-                sendDM(.init(method: .sendDM, text: "", dms: dms))
-            }
-        case .huya:
-            let bytes = [UInt8](data)
-            guard let re = huyaJSContext?.evaluateScript("test(\(bytes));"),
-                  re.isString,
-                  let str = re.toString() else {
-                return
-            }
-            
-            if str == "EWebSocketCommandType.EWSCmdS2C_RegisterGroupRsp" {
-                Log("huya connect success")
-                self.delegate?.send(.init(method: .liveDMServer, text: ""), sender: self)
-                return
-            } else if str.starts(with: "EWebSocketCommandType") {
-                guard str != "EWebSocketCommandType.EWSCmdS2C_MsgPushReq_V2" else { return }
-                Log("huya websocket info \(str)")
-                return
-            } else if str == "EWebSocketCommandType.EWSCmdS2C_HeartBeatRsp" {
-                Log("Danmaku HeartBeatRsp")
-                heartBeatCount = 0
-                return
-            }
-            
-            guard let data = str.data(using: .utf8),
-                  let msg = try? JSONDecoder().decode(HuYaDanmuMsg.self, from: data) else {
-                      Log("huya msg unknown \(str)")
-                      return
-                  }
-            
-            if msg.ePushType == 5,
-               msg.iUri == 1400,
-               msg.iProtocolType == 2,
-               !huyaBlockList.contains(where: msg.sMsg.contains) {
-                let dm = DanmakuComment(text: msg.sMsg)
-                sendDM(.init(method: .sendDM, text: "", dms: [dm]))
-            }
-            
-            
-            
-            //            "/{dx" = "[大笑]",  😆
-            //            "/{sh" = "[送花]",  🌹
-            //            "/{tx" = "[偷笑]",  🙂
-            //            "/{dk" = "[大哭]",  😭
-            //            "/{hh" = "[嘿哈]",  😁
-            //            "/{66" = "[666]"},  666
-            //            "/{gd" = "[感动]",  😹
-            //            "/{yw" = "[疑问]",  🤔️
-            //            "/{xh" = "[喜欢]",  😍
-            //            "/{jx" = "[奸笑]",  😏
-            //            "/{zan" = "[赞]",  👍
-            //            "/{ka" = "[可爱]",  😋
-            //            "/{am" = "[傲慢]",  🧐
-            //            "/{kx" = "[开心]",  😀
-            //            "/{88" = "[拜拜]",  👋
-            //            "/{hx" = "[害羞]",  😳
-            //            "/{zs" = "[衰]",  😱
-            //            "/{pu" = "[吐血]",
-            //            "/{zc" = "[嘴馋]",  😋
-            //            "/{sq" = "[生气]",  😠
-            //            "/{fe" = "[扶额]",
-            //            "/{bz" = "[闭嘴]",  🤐
-            //            "/{kw" = "[枯萎]",  🥀
-            //            "/{xu" = "[嘘]",  🤫
-            //            "/{xk" = "[笑哭]",  😂
-            //            "/{lh" = "[流汗]",  💦
-            //            "/{bk" = "[不看]",  🙈
-            //            "/{hq" = "[哈欠]",
-            //            "/{tp" = "[调皮]",  😝
-            //            "/{gl" = "[鬼脸]",  😜
-            //            "/{cl" = "[戳脸]",
-            //            "/{dg" = "[大哥]",
-            //            "/{kun" = "[困]",
-            //            "/{yb" = "[拥抱]",
-            //            "/{zt" = "[猪头]",  🐷
-            //            "/{kl" = "[骷髅]",  ☠️
-            //            "/{cc" = "[臭臭]",
-            //            "/{xd" = "[心动]",
-            //            "/{dao" = "[刀]",  🔪
-            //            "/{wx" = "[微笑]",
-            //            "/{ll" = "[流泪]",
-            //            "/{dy" = "[得意]",
-            //            "/{jy" = "[惊讶]",
-            //            "/{pz" = "[撇嘴]",
-            //            "/{yun" = "[晕]",
-            //            "/{ng" = "[难过]",
-            //            "/{se" = "[色]",
-            //            "/{cy" = "[抽烟]",
-            //            "/{qd" = "[敲打]"},
-            //            "/{mg" = "[玫瑰]",
-            //            "/{wen" = "[吻]",
-            //            "/{xs" = "[心碎]",
-            //            "/{zd" = "[*屏蔽的关键字*]",
-            //            "/{sj" = "[睡觉]",
-            //            "/{hk" = "[很酷]",
-            //            "/{by" = "[白眼]",
-            //            "/{ot" = "[呕吐]",
-            //            "/{fd" = "[奋斗]",
-            //            "/{kz" = "[口罩]",
-            //            "/{hp" = "[害怕]",
-            //            "/{dai" = "[发呆]",
-            //            "/{fn" = "[发怒]",
-            //            "/{ruo" = "[弱]",
-            //            "/{ws" = "[握手]",
-            //            "/{sl" = "[胜利]",
-            //            "/{lw" = "[礼物]",
-            //            "/{sd" = "[闪电]",
-            //            "/{gz" = "[鼓掌]",
-            //            "/{qq" = "[亲亲]",
-            //            "/{kb" = "[抠鼻]",
-            //            "/{wq" = "[委屈]",
-            //            "/{yx" = "[阴险]",
-            //            "/{kel" = "[可怜]",
-            //            "/{bs" = "[鄙视]",
-            //            "/{zk" = "[抓狂]",
-            //            "/{bq" = "[抱拳]",
-            //            "/{ok" = "[OK]"
-        case .douyu:
-            var d = data
-            
-            if douyuSavedData.count != 0 {
-                douyuSavedData.append(d)
-                d = douyuSavedData
-                douyuSavedData = Data()
-            }
-            
-            var msgDatas: [Data] = []
-            
-            while d.count > 12 {
-                let head = d.subdata(in: 0..<4)
-                let endIndex = Int(CFSwapInt32LittleToHost(head.withUnsafeBytes { $0.load(as: UInt32.self) }))
-                if d.count < endIndex+2 {
-                    douyuSavedData.append(douyuSavedData)
-                    d = Data()
-                } else {
-                    guard endIndex+2 > 12,
-                        endIndex+2 < d.endIndex else {
-                            Log("endIndex out of range.")
-                            return }
-                    let msg = d.subdata(in: 12..<endIndex+2)
-                    msgDatas.append(msg)
-                    d = d.subdata(in: endIndex+2..<d.endIndex)
-                }
-            }
-            
-            var dms = [DanmakuComment]()
-            
-            msgDatas.forEach {
-                guard let msg = String(data: $0, encoding: .utf8) else { return }
-                if msg.starts(with: "type@=chatmsg") {
-					
-					if !msg.contains("dms@=") {
-						// filter strange dm
+				} catch let error {
+					if let str = String(data: data, encoding: .utf8), str.contains("cmd") {
+						return nil
+					} else if let str = String(data: d, encoding: .utf8), str.contains("cmd") {
+						return nil
+					} else {
+						Log("decode bililive msg error \(error)")
+					}
+				}
+				return nil
+			}
+
+			var datas: [Data] = []
+			guard var d = checkIntegrity(data) else { return }
+			while d.count > 20 {
+				var r2 = PacketReader(data: d)
+				guard let raw = r2.readUInt32() else { break }
+				let endIndex = Int(raw)
+				if endIndex <= d.endIndex {
+					datas.append(d.subdata(in: 16..<endIndex))
+					d = d.subdata(in: endIndex..<d.endIndex)
+				} else {
+					d.removeAll()
+				}
+			}
+
+			let dms = try? datas.compactMap(decodeBiliLiveDM(_:))
+			if let dms, dms.count > 0 {
+				sendDM(.init(method: .sendDM, text: "", dms: dms))
+			}
+		case .huya:
+			let bytes = [UInt8](data)
+			guard let re = huyaJSContext?.evaluateScript("test(\(bytes));"),
+				  re.isString,
+				  let str = re.toString() else {
+				return
+			}
+
+			if str == "EWebSocketCommandType.EWSCmdS2C_RegisterGroupRsp" {
+				Log("huya connect success")
+				self.delegate?.send(.init(method: .liveDMServer, text: ""), sender: self)
+				return
+			} else if str.starts(with: "EWebSocketCommandType") {
+				guard str != "EWebSocketCommandType.EWSCmdS2C_MsgPushReq_V2" else { return }
+				Log("huya websocket info \(str)")
+				return
+			} else if str == "EWebSocketCommandType.EWSCmdS2C_HeartBeatRsp" {
+				heartBeatCount = 0
+				return
+			}
+
+			guard let data = str.data(using: .utf8),
+				  let msg = try? JSONDecoder().decode(HuYaDanmuMsg.self, from: data) else {
+				Log("huya msg unknown \(str)")
+				return
+			}
+
+			if msg.ePushType == 5,
+			   msg.iUri == 1400,
+			   msg.iProtocolType == 2,
+			   !huyaBlockList.contains(where: msg.sMsg.contains) {
+				let dm = DanmakuComment(text: msg.sMsg)
+				sendDM(.init(method: .sendDM, text: "", dms: [dm]))
+			}
+		case .douyu:
+			var d = data
+			if douyuSavedData.count != 0 {
+				douyuSavedData.append(d)
+				d = douyuSavedData
+				douyuSavedData = Data()
+			}
+
+			var msgDatas: [Data] = []
+			while d.count > 12 {
+				var r3 = PacketReader(data: d)
+				guard let raw = r3.readUInt32(endianness: .little) else { break }
+				let endIndex = Int(raw)
+				if d.count < endIndex+2 {
+					douyuSavedData.append(douyuSavedData)
+					d = Data()
+				} else {
+					guard endIndex+2 > 12, endIndex+2 < d.endIndex else {
+						Log("endIndex out of range.")
 						return
 					}
-					
-                    let dm = msg.split(separator: "/").filter {
-                        $0.starts(with: "txt@=")
-                    }.filter {
-                        !douyuBlockList.contains(where: $0.contains)
-                    }.first
-                    
-                    if let dm = dm {
-                        dms.append(.init(text: String(dm.dropFirst("txt@=".count))))
-                    }
-                } else if msg.starts(with: "type@=error") {
-                    Log("douyu socket disconnected: \(msg)")
-                    self.delegate?.send(.init(method: .liveDMServer, text: "error"), sender: self)
-                    socket?.close()
-                } else if msg.starts(with: "type@=loginres") {
-                    Log("douyu content success")
-                    self.delegate?.send(.init(method: .liveDMServer, text: ""), sender: self)
-                } else if msg == "type@=mrkl" {
-                    Log("Danmaku HeartBeatRsp")
-                    heartBeatCount = 0
-                }
-            }
-            
+					let msg = d.subdata(in: 12..<endIndex+2)
+					msgDatas.append(msg)
+					d = d.subdata(in: endIndex+2..<d.endIndex)
+				}
+			}
 
-            sendDM(.init(method: .sendDM, text: "", dms: dms))
-        case .douyin:
-            do {
+			var dms = [DanmakuComment]()
+			msgDatas.forEach {
+				guard let msg = String(data: $0, encoding: .utf8) else { return }
+				if msg.starts(with: "type@=chatmsg") {
+					if !msg.contains("dms@=") { return }
+					let dm = msg.split(separator: "/").filter { $0.starts(with: "txt@=") }
+						.filter { !douyuBlockList.contains(where: $0.contains) }.first
+					if let dm = dm {
+						dms.append(.init(text: String(dm.dropFirst("txt@=".count))))
+					}
+				} else if msg.starts(with: "type@=error") {
+					Log("douyu socket disconnected: \(msg)")
+					self.delegate?.send(.init(method: .liveDMServer, text: "error"), sender: self)
+					Task { await socket?.close() }
+				} else if msg.starts(with: "type@=loginres") {
+					Log("douyu content success")
+					self.delegate?.send(.init(method: .liveDMServer, text: ""), sender: self)
+				} else if msg == "type@=mrkl" {
+					heartBeatCount = 0
+				}
+			}
+			sendDM(.init(method: .sendDM, text: "", dms: dms))
+		case .douyin:
+			do {
 				let re = try DouYinResponse(serializedBytes: data)
 				let ree = try Douyin_Response(serializedBytes: re.data.gunzipped())
-                
-				let dms = ree.messagesList.filter {
-                    $0.method == "WebcastChatMessage"
-                }.compactMap {
+				let dms = ree.messagesList.filter { $0.method == "WebcastChatMessage" }.compactMap {
 					try? Douyin_ChatMessage(serializedBytes: $0.payload)
-                }.map {
-                    DanmakuComment(text: $0.content)
-                }
-                
-                sendDM(.init(method: .sendDM, text: "", dms: dms))
-                
-                guard ree.needAck else { return }
-                
-                var pf = Douyin_PushFrame()
-                pf.payloadType = "ack"
-                pf.logID = UInt64(re.wssPushLogID)
-                
-                let payload: [UInt8] = {
-                    var t = [UInt8]()
-                    func push(_ e: UInt32) {
-                        t.append(UInt8(e))
-                    }
-                    
-                    ree.internalExt.unicodeScalars.forEach {
-                        let e = $0.value
-                        switch e {
-                        case _ where e < 128:
-                            push(e)
-                        case _ where e < 2048:
-                            push(192 + (e >> 6))
-                            push(128 + (63 & e))
-                        case _ where e < 65536:
-                            push(224 + (e >> 12))
-                            push(128 + (e >> 6 & 63))
-                            push(128 + (63 & e))
-                        default:
-                            break
-                        }
-                    }
-                    
-                    return t
-                }()
-                
-                pf.payload = Data(payload)
-                
-                try? webSocket.send(data: pf.serializedData())
-                
-            } catch let error {
-                Log("\(error)")
-            }
-            
-        default:
-            break
-        }   
-    }
-    
-    func webSocket(_ webSocket: SRWebSocket, didFailWithError error: Error) {
-        Log(error)
-
-		let err = error as NSError
-		
-		if err.domain == SRWebSocketErrorDomain,
-		err.code == 2133,
-		liveSite == .douyin {
-			socketClosed = true
+				}.map { DanmakuComment(text: $0.content) }
+				sendDM(.init(method: .sendDM, text: "", dms: dms))
+				guard ree.needAck else { return }
+				var pf = Douyin_PushFrame()
+				pf.payloadType = "ack"
+				pf.logID = UInt64(re.wssPushLogID)
+				let payload: [UInt8] = {
+					var t = [UInt8]()
+					func push(_ e: UInt32) {
+						t.append(UInt8(e))
+					}
+					ree.internalExt.unicodeScalars.forEach {
+						let e = $0.value
+						switch e {
+						case _ where e < 128: push(e)
+						case _ where e < 2048: push(192 + (e >> 6)); push(128 + (63 & e))
+						case _ where e < 65536: push(224 + (e >> 12)); push(128 + (e >> 6 & 63)); push(128 + (63 & e))
+						default: break
+						}
+					}
+					return t
+				}()
+				pf.payload = Data(payload)
+				Task { try? await socket?.send(data: pf.serializedData()) }
+			} catch let error {
+				Log("\(error)")
+			}
+		case .qieTV:
+			var reader = PacketReader(data: data)
+			guard let totalLen = reader.readInt32(),
+				  let headerLen = reader.readInt16() else { return }
+			reader.skip(2) // version
+			guard let op = reader.readInt32() else { return }
+			reader.skip(4) // seq
+			if op == 9 {
+				while reader.available > 0 {
+					guard let subTotal = reader.readInt32(),
+						  let subHeader = reader.readInt16() else { break }
+					reader.skip(2) // version
+					guard let subOp = reader.readInt32() else { break }
+					reader.skip(4) // seq
+					let bodyLen = Int(subTotal) - Int(subHeader)
+					guard bodyLen >= 0, reader.available >= bodyLen else { break }
+					let body = reader.bytes(bodyLen)
+					processQieTVMessage(op: subOp, body: Data(body))
+				}
+			} else {
+				let bodyLen = Int(totalLen) - Int(headerLen)
+				guard bodyLen >= 0, reader.available >= bodyLen else { return }
+				let body = reader.bytes(bodyLen)
+				processQieTVMessage(op: op, body: Data(body))
+			}
+		default:
+			break
 		}
-    }
-    
+	}
+	
+	private func qieTVPacket(op: Int32, body: Data) -> Data {
+		var p = PacketWriter()
+		p.write(Int32(16 + body.count))
+		p.write(UInt16(16))
+		p.write(UInt16(1))
+		p.write(op)
+		p.write(qieTVSeq)
+		qieTVSeq += 1
+		p.write(body)
+		return p.data
+	}
+	
+	private func processQieTVMessage(op: Int32, body: Data) {
+		switch op {
+		case 3:
+			heartBeatCount = 0
+		case 8:
+			if let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+			   json["status"] as? Int == 0 {
+				Log("qieTV connect success")
+			}
+		case 2000:
+			if let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+			   let msg = json["msg"] as? [String: Any],
+			   let content = msg["content"] as? String {
+				let dm = DanmakuComment(text: content)
+				sendDM(.init(method: .sendDM, text: "", dms: [dm]))
+			}
+		default:
+			break
+		}
+	}
+	
     func pack(format: String, values: [Int]) -> NSMutableData {
         let data = NSMutableData()
         
@@ -684,6 +628,7 @@ new Uint8Array(sendRegisterGroups(["live:\(id)", "chat:\(id)"]));
         return data
     }
 }
+
 
 extension Danmaku: DanmakuSubDelegate {
     func send(_ event: DanmakuEvent) {

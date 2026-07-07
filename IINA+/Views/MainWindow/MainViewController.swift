@@ -10,7 +10,7 @@ import Cocoa
 import CoreData
 import Alamofire
 import SDWebImage
-@preconcurrency import WebKit
+import WebKit
 
 private extension NSPasteboard.PasteboardType {
     static let bookmarkRow = NSPasteboard.PasteboardType("bookmark.Row")
@@ -149,8 +149,8 @@ class MainViewController: NSViewController {
         } else if card.videos > 1 {
             Task {
                 do {
-                    let infos = try await Processes.shared.videoDecoder.bilibili.getVideoList("https://www.bilibili.com/video/\(bvid)")
-                    showSelectVideo(bvid, infos: infos)
+                    let infos = try await Bilibili.shared.video.getVideoList("https://www.bilibili.com/video/\(bvid)")
+                    showSelectVideo(bvid, treeNodes: infos)
                 } catch let error {
                     Log("Get video list error: \(error)")
                 }
@@ -283,7 +283,7 @@ class MainViewController: NSViewController {
         }
         
         bookmarkArrayCountObserver = bookmarkArrayController.observe(\.arrangedObjects, options: [.new, .initial]) { [unowned self] arrayController, _ in
-            Task {
+            Task { [self] in
                 await updateNoticeTabView()
             }
         }
@@ -396,14 +396,14 @@ class MainViewController: NSViewController {
         NotificationCenter.default.post(name: .progressStatusChanged, object: nil, userInfo: ["inProgress": inProgress])
     }
     
-    func showSelectVideo(_ videoId: String, infos: [(String, [VideoSelector])], currentItem: Int = 0) {
+    func showSelectVideo(_ videoId: String, treeNodes: [VideoTreeNode], currentItem: Int = 0) {
         guard let selectVideoViewController = self.children.compactMap({ $0 as? SelectVideoViewController }).first else {
             return
         }
         
         DispatchQueue.main.async {
             self.searchField.stringValue = ""
-            selectVideoViewController.videoInfos = infos
+            selectVideoViewController.videoTreeNodes = treeNodes
             selectVideoViewController.videoId = videoId
             selectVideoViewController.currentItem = currentItem
             self.selectTabItem(.selectVideos)
@@ -545,7 +545,7 @@ class MainViewController: NSViewController {
                    with option: Bool = false) async throws {
      
 		let videoGet = Processes.shared.videoDecoder
-        let bilibili = await Processes.shared.videoDecoder.bilibili
+        let bilibili = await Bilibili.shared.video
         let douyu = await Processes.shared.videoDecoder.douyu
         
 		var str = url
@@ -579,15 +579,16 @@ class MainViewController: NSViewController {
 			switch bUrl.urlType {
 			case .video:
 				let infos = try await bilibili.getVideoList(u)
-				let list = infos.flatMap({ $0.1 })
+				let list = infos.flattened.flatMap { $0.children.filter(\.isLeaf) }
 				if list.count > 1 {
-					let cItem = list.first!.isCollection ? list.firstIndex(where: { $0.bvid == bUrl.id }) : bUrl.p - 1
-					showSelectVideo(bUrl.id, infos: infos, currentItem: cItem ?? 0)
+					let cItem = list.firstIndex(where: { $0.bvid == bUrl.id && $0.index == bUrl.p })
+						?? list.firstIndex(where: { $0.bvid == bUrl.id })
+					showSelectVideo(bUrl.id, treeNodes: infos, currentItem: cItem ?? 0)
 				} else {
 					try await decodeUrl()
 				}
 			case .bangumi:
-                let epVS = try await bilibili.bangumi.getBangumiList(u).epVideoSelectors
+                let epVS = try await Bilibili.shared.bangumi.getBangumiList(u).epVideoSelectors
 				if epVS.count == 1 {
 					try await decodeUrl()
 				} else {
@@ -598,12 +599,12 @@ class MainViewController: NSViewController {
 						} ?? 0
 					}
 					
-					showSelectVideo("", infos: [("", epVS)], currentItem: cItem)
+					showSelectVideo("", treeNodes: [VideoTreeNode(title: "", children: epVS)], currentItem: cItem)
 				}
 			default:
 				return
 			}
-		} else if url.host == "www.douyu.com",
+		} else if SupportSites(url: str) == .douyu,
 				  url.pathComponents.count > 2,
 				  url.pathComponents[1] == "topic" {
 			
@@ -621,26 +622,19 @@ class MainViewController: NSViewController {
 							return
 						}
 						let cid = htmls.roomId
-						var re = [DouyuVideoSelector]()
-						
 						let names = try await douyu.getDouyuEventRoomNames(htmls.pageId)
+						let status = try await douyu.getDouyuEventRoomOnlineStatus(htmls.pageId)
 						
-						re = names.enumerated().map {
-							DouyuVideoSelector(
+						let re = names.enumerated().map {
+							VideoTreeNode(
+								site: .douyu,
 								index: $0.offset,
 								title: $0.element.text,
 								id: $0.element.roomId,
 								url: "https://www.douyu.com/\($0.element.roomId)",
-								isLiving: false,
-								coverUrl: nil)
+								isLiving: status[$0.element.roomId] ?? false)
 						}
-						
-						let status = try await douyu.getDouyuEventRoomOnlineStatus(htmls.pageId)
-						
-						re.enumerated().forEach {
-							re[$0.offset].isLiving = status[$0.element.id] ?? false
-						}
-						showSelectVideo("", infos: [("", re)], currentItem: re.map({ $0.id }).firstIndex(of: cid) ?? 0)
+						showSelectVideo("", treeNodes: [VideoTreeNode(title: "", children: re)], currentItem: re.map({ $0.id }).firstIndex(of: cid) ?? 0)
 					} catch let error {
 						switch error {
 						case VideoGetError.douyuNotFoundSubRooms:
@@ -652,39 +646,39 @@ class MainViewController: NSViewController {
 				}
 			}
 			
-			
-		} else if url.host == "www.huya.com" {
+
+		} else if SupportSites(url: str) == .huya {
 			let rl = try await videoGet.huya.getHuyaRoomList(url.absoluteString)
 			if rl.list.count == 0 {
 				try await decodeUrl()
 			} else {
-				showSelectVideo("", infos: [("", rl.list)], currentItem: rl.list.firstIndex(where: { $0.id == rl.current }) ?? 0)
+				showSelectVideo("", treeNodes: [VideoTreeNode(title: "", children: rl.list)], currentItem: rl.list.firstIndex(where: { $0.id == rl.current }) ?? 0)
 			}
-		} else if url.host == "live.bilibili.com" {
-			let list = try await videoGet.biliLive.getRoomList(url.absoluteString)
+		} else if SupportSites(url: str) == .biliLive {
+			let list = try await Bilibili.shared.live.getRoomList(url.absoluteString)
 			if list.1.count == 0 || list.1.count == 1 {
 				try await decodeUrl()
 			} else {
 				var c = 0
 				if url.pathComponents.count > 1 {
 					let id = "\(url.pathComponents[1])"
-					c = list.1.firstIndex(where: { $0.id == id || $0.sid == id }) ?? 0
+					c = list.1.firstIndex(where: { $0.id == id }) ?? 0
 				}
-				showSelectVideo("", infos: [("", list.1)], currentItem: c)
+				showSelectVideo("", treeNodes: [VideoTreeNode(title: "", children: list.1)], currentItem: c)
 			}
-		} else if url.host == "cc.163.com" {
+		} else if SupportSites(url: str) == .cc163 {
 			let state = try await videoGet.cc163.getCC163State(url.absoluteString)
 			if state.list.count > 1 {
 				let infos = state.list.enumerated().map {
-					CC163VideoSelector(
+					VideoTreeNode(
+						site: .cc163,
 						index: $0.offset,
 						title: $0.element.name,
-						ccid: "\($0.element.ccid)",
-						isLiving: $0.element.isLiving,
+						id: "\($0.element.ccid)",
 						url: $0.element.channel,
-						id: "\($0.element.ccid)")
+						isLiving: $0.element.isLiving)
 				}
-				showSelectVideo("", infos: [("", infos)])
+				showSelectVideo("", treeNodes: [VideoTreeNode(title: "", children: infos)])
 			} else if let i = state.info as? CC163Info {
 				str = "https://cc.163.com/ccid/\(i.ccid)"
 				try await decodeUrl()
@@ -861,9 +855,9 @@ class MainViewController: NSViewController {
             .separator()
         ]
         
-        let sites = dataManager.requestData().map {
-            $0.url
-        }.compactMap(SupportSites.init(url: ))
+		let sites = dataManager.requestData().map {
+			$0.url
+		}.compactMap(SupportSites.init(url: ))
             .filter {
                 $0 != .unsupported
             }
@@ -909,19 +903,19 @@ class MainViewController: NSViewController {
             }
         }
         
-        var f2 = ""
-        if let item = siteFilterMenu.items.first(where: { $0.state == .on }) as? ObjMenuItem {
-            switch item.tag {
-            case 1:
-                f2 = ""
-            default:
-                if let i = item.item as? SupportSites {
-                    f2 = "url CONTAINS '\(i.rawValue)'"
-                    if i == .bilibili || i == .bangumi {
-                        f = ""
-                    }
-                }
-            }
+		var f2 = ""
+		if let item = siteFilterMenu.items.first(where: { $0.state == .on }) as? ObjMenuItem {
+			switch item.tag {
+			case 1:
+				f2 = ""
+			default:
+				if let i = item.item as? SupportSites {
+					f2 = i.urlFilterPredicate
+					if i == .bilibili || i == .bangumi {
+						f = ""
+					}
+				}
+			}
         }
         
         let format = [f, f2].filter {
@@ -983,12 +977,12 @@ extension MainViewController: NSTableViewDelegate, NSTableViewDataSource {
     
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
         switch tableView {
-        case bookmarkTableView:
-            let str = bookmarks[row].url
-            switch SupportSites(url: str) {
-            case .unsupported:
-                return 23
-            default:
+		case bookmarkTableView:
+			let str = bookmarks[row].url
+			switch SupportSites(url: str) {
+			case .unsupported:
+				return 23
+			default:
                 return 57
             }
         case bilibiliTableView:
@@ -1003,13 +997,13 @@ extension MainViewController: NSTableViewDelegate, NSTableViewDataSource {
     
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         switch tableView {
-        case bookmarkTableView:
-            let data = bookmarks[row]
-            let str = data.url
-            switch SupportSites(url: str) {
-            case .unsupported:
-                return tableView.makeView(withIdentifier: .liveUrlTableCellView, owner: nil)
-            default:
+		case bookmarkTableView:
+			let data = bookmarks[row]
+			let str = data.url
+			switch SupportSites(url: str) {
+			case .unsupported:
+				return tableView.makeView(withIdentifier: .liveUrlTableCellView, owner: nil)
+			default:
                 return tableView.makeView(withIdentifier: .liveStatusTableCellView, owner: nil) as? LiveStatusTableCellView
             }
         case suggestionsTableView:

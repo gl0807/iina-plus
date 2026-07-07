@@ -39,7 +39,7 @@ class JSPlayerURLSchemeHandler: NSObject, WKURLSchemeHandler {
 		case .biliLive:
 			request.setValue("https://live.bilibili.com", forHTTPHeaderField: "Referer")
 			request.setValue("https://live.bilibili.com", forHTTPHeaderField: "Origin")
-		case .qqLive:
+		case .qieTV:
 			request.setValue("libmpv", forHTTPHeaderField: "User-Agent")
 		case .huya:
 			request.setValue("https://www.huya.com/", forHTTPHeaderField: "Referer")
@@ -73,7 +73,7 @@ class JSPlayerURLSchemeHandler: NSObject, WKURLSchemeHandler {
 	}
 }
 
-extension JSPlayerURLSchemeHandler: URLSessionDelegate, @preconcurrency URLSessionDataDelegate {
+extension JSPlayerURLSchemeHandler: @preconcurrency URLSessionDelegate, @preconcurrency URLSessionDataDelegate {
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse) async -> URLSession.ResponseDisposition {
         
         guard let schemeTask = map[dataTask] else {

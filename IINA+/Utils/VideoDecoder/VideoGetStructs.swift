@@ -19,14 +19,80 @@ protocol LiveInfo: Sendable {
     var site: SupportSites { get }
 }
 
-protocol VideoSelector {
-    var site: SupportSites { get }
-    var index: Int { get }
-    var title: String { get }
-    var id: String { get }
-    var url: String { get }
-    var isLiving: Bool { get }
-    var coverUrl: URL? { get }
+final class VideoTreeNode: Sendable, Hashable {
+    let title: String
+    let isLeaf: Bool
+    let children: [VideoTreeNode]
+    
+    // Common leaf properties
+    let site: SupportSites
+    let index: Int
+    let id: String
+    let url: String
+    let isLiving: Bool
+    let coverUrl: URL?
+    
+    // Bilibili-specific
+    let bvid: String
+    let duration: Int
+    let isCollection: Bool
+    let longTitle: String
+    
+    init(site: SupportSites = .unsupported,
+         index: Int = 0,
+         title: String,
+         id: String,
+         url: String = "",
+         isLiving: Bool = false,
+         coverUrl: URL? = nil,
+         bvid: String = "",
+         duration: Int = 0,
+         isCollection: Bool = false,
+         longTitle: String = "") {
+        self.title = title
+        self.isLeaf = true
+        self.children = []
+        self.site = site
+        self.index = index
+        self.id = id
+        self.url = url
+        self.isLiving = isLiving
+        self.coverUrl = coverUrl
+        self.bvid = bvid
+        self.duration = duration
+        self.isCollection = isCollection
+        self.longTitle = longTitle
+    }
+    
+    init(title: String, children: [VideoTreeNode]) {
+        self.title = title
+        self.isLeaf = false
+        self.children = children
+        self.site = .unsupported
+        self.index = 0
+        self.id = ""
+        self.url = ""
+        self.isLiving = false
+        self.coverUrl = nil
+        self.bvid = ""
+        self.duration = 0
+        self.isCollection = false
+        self.longTitle = ""
+    }
+    
+    static func == (lhs: VideoTreeNode, rhs: VideoTreeNode) -> Bool {
+        lhs === rhs
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+    }
+}
+
+extension [VideoTreeNode] {
+    var flattened: [VideoTreeNode] {
+        filter { !$0.isLeaf && !$0.children.filter(\.isLeaf).isEmpty }
+    }
 }
 
 struct BilibiliInfo: Unmarshaling, LiveInfo {

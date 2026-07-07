@@ -6,197 +6,164 @@
 //  Copyright © 2018 xjbeta. All rights reserved.
 //
 
-import Cocoa
+import Foundation
 import Alamofire
 import Marshal
+import CommonCrypto
+import CryptoSwift
 
-actor Bilibili: SupportSiteProtocol {
-	
-    let biliShare = BilibiliShare()
-    let bangumi = Bangumi()
+actor Bilibili {
+    
+    static let shared = Bilibili()
+    lazy var bangumi = BiliBangumi()
+    lazy var live = BiliLive()
+    lazy var video = BiliVideo()
+    
+    let bangumiUA = "Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101 Firefox/38.0 Iceweasel/38.2.1"
+    let bilibiliUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5.1 Safari/605.1.15"
     
     private var wbiKeys: (img: String, sub: String)?
     private var wbiRefreshDate: Date?
-    
-	func liveInfo(_ url: String) async throws -> any LiveInfo {
-		let isBangumi = SupportSites(url: url) == .bangumi
-		
-		if isBangumi {
-            return try await bangumi.liveInfo(url)
-		} else {
-			let data = try await getBilibiliHTMLDatas(url)
-			
-			let initialStateJson: JSONObject = try JSONParser.JSONObjectWithData(data.initialStateData)
-			
-			var info = BilibiliInfo()
-			info.title = try initialStateJson.value(for: "videoData.title")
-			info.cover = try initialStateJson.value(for: "videoData.pic")
-			info.cover = info.cover.https()
-			info.name = try initialStateJson.value(for: "videoData.owner.name")
-			info.isLiving = true
-			
-			return info
-		}
-	}
-	
-	func decodeUrl(_ url: String) async throws -> YouGetJSON {
-		var re: YouGetJSON!
-		if SupportSites(url: url) == .bangumi {
-            re = try await bangumi.decodeUrl(url)
-		} else {
-			re = try await getBilibili(url)
-		}
-		
-		let ss = re.streams.filter {
-			$0.value.url != nil && $0.value.url != ""
-		}.max {
-			$0.value.quality < $1.value.quality
-		}
-		
-		if let ss {
-			re.streams.filter {
-				$0.value.quality > ss.value.quality
-			}.forEach {
-				re.streams[$0.key] = nil
-			}
-		}
-		return re
-	}
-    
-// MARK: - Bilibili Video
-    
-    func getBilibili(_ url: String) async throws -> YouGetJSON {
-        
-        await biliShare.setBilibiliQuality()
-
-		func r1() async throws -> YouGetJSON {
-			let json = try await bilibiliPrepareID(url)
-            return try await biliShare.bilibiliPlayUrl(yougetJson: json)
-		}
-		
-		func r2() async throws -> YouGetJSON {
-			let datas = try await getBilibiliHTMLDatas(url)
-			return try await decodeBilibiliDatas(
-				url,
-				playInfoData: datas.playInfoData,
-				initialStateData: datas.initialStateData)
-		}
-		
-		let preferHTML = Preferences.shared.bilibiliHTMLDecoder
-		
-		do {
-			return try await preferHTML ? r2() : r1()
-		} catch let error {
-			Log("\(error), fallback")
-			return try await preferHTML ? r1() : r2()
-		}
-    }
-    
-	func getBilibiliHTMLDatas(_ url: String) async throws -> (playInfoData: Data, initialStateData: Data) {
-        let headers = HTTPHeaders(["Referer": "https://www.bilibili.com/",
-                                   "User-Agent": biliShare.bilibiliUA])
-
-		let re = try await AF.request(url, headers: headers).serializingString().value
-		
-		let playinfoStrig = {
-			var s = re.subString(from: "window.__playinfo__=", to: "</script>")
-			if s == "" {
-				s = re.subString(from: "const playurlSSRData = ", to: "\n")
-			}
-			return s
-		}()
-		
-		let playInfoData = playinfoStrig.data(using: .utf8) ?? Data()
-		let initialStateData = re.subString(from: "window.__INITIAL_STATE__=", to: ";(function()").data(using: .utf8) ?? Data()
-		
-		return (playInfoData, initialStateData)
-    }
-    
-    func decodeBilibiliDatas(_ url: String,
-                             playInfoData: Data,
-                             initialStateData: Data) async throws -> YouGetJSON {
-        var yougetJson = YouGetJSON(rawUrl: url)
-        
-		let playInfoJson: JSONObject = try JSONParser.JSONObjectWithData(playInfoData)
-		let initialStateJson: JSONObject = try JSONParser.JSONObjectWithData(initialStateData)
-		
-		var title: String = try initialStateJson.value(for: "videoData.title")
-		
-		struct Page: Unmarshaling {
-			let page: Int
-			let part: String
-			let cid: Int
-			
-			init(object: MarshaledObject) throws {
-				page = try object.value(for: "page")
-				part = try object.value(for: "part")
-				cid = try object.value(for: "cid")
-			}
-		}
-		let pages: [Page] = try initialStateJson.value(for: "videoData.pages")
-		yougetJson.id = try initialStateJson.value(for: "videoData.cid")
-//                let bvid: String = try initialStateJson.value(for: "videoData.bvid")
-		
-		if let p = URL(string: url)?.query?.replacingOccurrences(of: "p=", with: ""),
-		   let pInt = Int(p),
-		   pInt - 1 > 0, pInt - 1 < pages.count {
-			let page = pages[pInt - 1]
-			title += " - P\(pInt) - \(page.part)"
-			yougetJson.id = page.cid
-		}
-		
-		yougetJson.title = title
-		yougetJson.duration = try initialStateJson.value(for: "videoData.duration")
-
-		if let playInfo: BilibiliPlayInfo = try? playInfoJson.value(for: "data") {
-			yougetJson = playInfo.write(to: yougetJson)
-			return yougetJson
-		} else if let info: BilibiliSimplePlayInfo = try? playInfoJson.value(for: "data") {
-			yougetJson = info.write(to: yougetJson)
-			return yougetJson
-		} else {
-			throw VideoGetError.notFindUrls
-		}
-    }
-    
-    func bilibiliPrepareID(_ url: String) async throws -> YouGetJSON {
-        guard let bUrl = BilibiliUrl(url: url) else {
-			throw VideoGetError.invalidLink
-        }
-        var json = YouGetJSON(rawUrl: url)
-        
-        json.site = .bilibili
-        let eps = try await getVideoList(url)
-        let list = eps.flatMap({ $0.1 })
-        var selector = list.first
-        if let s = selector, s.isCollection {
-            selector = list.first(where: { $0.bvid == bUrl.id })
-        } else {
-            selector = list.first(where: { $0.index == bUrl.p })
-        }
-        guard let s = selector else { throw VideoGetError.notFountData }
-        
-        json.id = Int(s.id) ?? -1
-        json.bvid = s.bvid
-        json.title = s.title
-        json.duration = Int(s.duration)
-        return json
-    }
-    
-    
-// MARK: - Bilibili Account API
     
     enum BilibiliApiError: Error {
         case biliCSRFNotFound
     }
     
-    func isLogin() async throws -> (Bool, String) {
-		let data = try await AF.request("https://api.bilibili.com/x/web-interface/nav").serializingData().value
-		let json: JSONObject = try JSONParser.JSONObjectWithData(data)
-		let isLogin: Bool = try json.value(for: "data.isLogin")
+    enum BilibiliFnval: Int {
+        case flv = 0
+        case mp4 = 1
+        case dashH265 = 16
+        case hdr = 64
+        case dash4K = 128
+        case dolbyAudio = 256
+        case dolbyVideo = 512
+        case dash8K = 1024
+        case dashAV1 = 2048
+    }
+    
+    func setBilibiliQuality() {
+        // https://github.com/xioxin/biliATV/issues/24
+        var cookieProperties = [HTTPCookiePropertyKey: String]()
+        cookieProperties[HTTPCookiePropertyKey.name] = "CURRENT_QUALITY" as String
+        cookieProperties[HTTPCookiePropertyKey.value] = "125" as String
+        cookieProperties[HTTPCookiePropertyKey.domain] = ".bilibili.com" as String
+        cookieProperties[HTTPCookiePropertyKey.path] = "/" as String
+        let cookie = HTTPCookie(properties: cookieProperties)
+        HTTPCookieStorage.shared.setCookie(cookie!)
+    }
+    
+    func bilibiliPlayUrl(yougetJson: YouGetJSON,
+                         _ isBangumi: Bool = false,
+                         _ qn: Int = 132) async throws -> YouGetJSON {
+        var yougetJson = yougetJson
+        let cid = yougetJson.id
         
-		NotificationCenter.default.post(name: .biliStatusChanged, object: nil, userInfo: ["isLogin": isLogin])
-		var name = ""
+        let allowFlv = true
+        let dashSymbol = true
+        let inner = false
+        
+        let fnval = allowFlv ? dashSymbol ? inner ? BilibiliFnval.dashH265.rawValue : BilibiliFnval.dashAV1.rawValue + BilibiliFnval.dash8K.rawValue + BilibiliFnval.dolbyVideo.rawValue + BilibiliFnval.dolbyAudio.rawValue + BilibiliFnval.dash4K.rawValue + BilibiliFnval.hdr.rawValue + BilibiliFnval.dashH265.rawValue : BilibiliFnval.flv.rawValue : BilibiliFnval.mp4.rawValue
+        
+        
+        var u = isBangumi ?
+        "https://api.bilibili.com/pgc/player/web/playurl?" :
+        "https://api.bilibili.com/x/player/playurl?"
+        
+        u += "cid=\(cid)&bvid=\(yougetJson.bvid)&qn=\(qn)&fnver=0&fnval=\(fnval)&fourk=1"
+        
+        let headers = HTTPHeaders(["Referer": "https://www.bilibili.com/",
+                                   "User-Agent": isBangumi ? bangumiUA : bilibiliUA])
+        
+        
+        let data = try await AF.request(u, headers: headers).serializingData().value
+        
+        let json: JSONObject = try JSONParser.JSONObjectWithData(data)
+        
+        let code: Int = try json.value(for: "code")
+        if code == -10403 {
+            throw VideoGetError.needVip
+        }
+        
+        let key = isBangumi ? "result" : "data"
+        
+        
+        do {
+            let info: BilibiliPlayInfo = try json.value(for: key)
+            yougetJson = info.write(to: yougetJson)
+        } catch {
+            Log("Bilibili fallback simple play info \(error)")
+            let info: BilibiliSimplePlayInfo = try json.value(for: key)
+            yougetJson = info.write(to: yougetJson)
+        }
+        
+        return yougetJson
+    }
+    
+    
+    // https://github.com/SocialSisterYi/bilibili-API-collect/blob/f1001353f83e12e018ae6bc42fa73654986eb544/docs/misc/sign/wbi.md#swift
+    
+    func biliWbiSign(param: String, wbiImg: String, wbiSub: String) -> String {
+        func getMixinKey(orig: String) -> String {
+            String(mixinKeyEncTab.map { orig[orig.index(orig.startIndex, offsetBy: $0)] }.prefix(32))
+        }
+        
+        func encWbi(params: [String: Any], imgKey: String, subKey: String) -> [String: Any] {
+            var params = params
+            let mixinKey = getMixinKey(orig: imgKey + subKey)
+            let currTime = Int(Date().timeIntervalSince1970)
+            params["wts"] = currTime
+            
+            let query = params.sorted {
+                $0.key < $1.key
+            }.map { (key, value) -> String in
+                let stringValue: String
+                
+                if let doubleValue = value as? Double, doubleValue.truncatingRemainder(dividingBy: 1) == 0 {
+                    stringValue = String(Int(doubleValue))
+                } else {
+                    stringValue = String(describing: value)
+                }
+                
+                let filteredValue = stringValue.filter { !"!'()*".contains($0) }
+                
+                return "\(key)=\(filteredValue)"
+            }.joined(separator: "&")
+            
+            let wbiSign = (query + mixinKey).md5()
+            params["w_rid"] = wbiSign
+            
+            return params
+        }
+        
+        let mixinKeyEncTab = [
+            46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49,
+            33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13, 37, 48, 7, 16, 24, 55, 40,
+            61, 26, 17, 0, 1, 60, 51, 30, 4, 22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11,
+            36, 20, 34, 44, 52
+        ]
+        
+        let spdParam = param.components(separatedBy: "&")
+        var spdDicParam = [String: String]()
+        for pair in spdParam {
+            let components = pair.components(separatedBy: "=")
+            if components.count == 2 {
+                spdDicParam[components[0]] = components[1]
+            }
+        }
+        
+        let signedParams = encWbi(params: spdDicParam, imgKey: wbiImg, subKey: wbiSub)
+        return signedParams.map { "\($0.key)=\($0.value)" }.joined(separator: "&")
+    }
+    
+    // MARK: - Account
+    
+    func isLogin() async throws -> (Bool, String) {
+        let data = try await AF.request("https://api.bilibili.com/x/web-interface/nav").serializingData().value
+        let json: JSONObject = try JSONParser.JSONObjectWithData(data)
+        let isLogin: Bool = try json.value(for: "data.isLogin")
+        
+        NotificationCenter.default.post(name: .biliStatusChanged, object: nil, userInfo: ["isLogin": isLogin])
+        var name = ""
         
         guard isLogin else {
             return (isLogin, name)
@@ -213,7 +180,7 @@ actor Bilibili: SupportSiteProtocol {
         
         wbiKeys = (img, sub)
         
-		return (isLogin, name)
+        return (isLogin, name)
     }
     
     func logout() async throws {
@@ -222,13 +189,13 @@ actor Bilibili: SupportSiteProtocol {
             
             throw BilibiliApiError.biliCSRFNotFound
         }
-		let _ = try await AF.request("https://passport.bilibili.com/login/exit/v2", method: .post, parameters: ["biliCSRF": biliCSRF]).serializingData().value
+        let _ = try await AF.request("https://passport.bilibili.com/login/exit/v2", method: .post, parameters: ["biliCSRF": biliCSRF]).serializingData().value
     }
     
-	func getUid() async throws -> Int {
-		let data = try await AF.request("https://api.bilibili.com/x/web-interface/nav").serializingData().value
-		let json: JSONObject = try JSONParser.JSONObjectWithData(data)
-		return try json.value(for: "data.mid")
+    func getUid() async throws -> Int {
+        let data = try await AF.request("https://api.bilibili.com/x/web-interface/nav").serializingData().value
+        let json: JSONObject = try JSONParser.JSONObjectWithData(data)
+        return try json.value(for: "data.mid")
     }
     
     func wbiSign(_ param: String) async throws -> String {
@@ -252,7 +219,7 @@ actor Bilibili: SupportSiteProtocol {
             return ""
         }
         
-        return await biliShare.biliWbiSign(param: param, wbiImg: wbiKeys.img, wbiSub: wbiKeys.sub)
+        return biliWbiSign(param: param, wbiImg: wbiKeys.img, wbiSub: wbiKeys.sub)
     }
     
     func dynamicList(_ uid: Int,
@@ -272,66 +239,18 @@ actor Bilibili: SupportSiteProtocol {
             http = AF.request("https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/dynamic_new?uid=\(uid)&current_dynamic_id=\(dynamicID)&type=8", headers: headers)
         }
         
-		let data = try await http.serializingData().value
-		let json: JSONObject = try JSONParser.JSONObjectWithData(data)
-		let cards: [BilibiliCard]? = try? json.value(for: "data.cards")
-		return cards ?? []
+        let data = try await http.serializingData().value
+        let json: JSONObject = try JSONParser.JSONObjectWithData(data)
+        let cards: [BilibiliCard]? = try? json.value(for: "data.cards")
+        return cards ?? []
     }
     
     func getPvideo(_ aid: Int) async throws -> BilibiliPvideo {
-		let data = try await AF.request("https://api.bilibili.com/x/player/videoshot?aid=\(aid)&index=1").serializingData().value
-		let json: JSONObject = try JSONParser.JSONObjectWithData(data)
-		return try BilibiliPvideo(object: json)
-    }
-    
-    func getVideoList(_ url: String) async throws -> [(String, [BiliVideoSelector])] {
-        var aid = -1
-        var bvid = ""
-        
-        let pathComponents = URL(string: url)?.pathComponents ?? []
-        guard pathComponents.count >= 3 else {
-            throw VideoGetError.cantFindIdForDM
-        }
-        let idP = pathComponents[2]
-        if idP.starts(with: "av"), let id = Int(idP.replacingOccurrences(of: "av", with: "")) {
-            aid = id
-        } else if idP.starts(with: "BV") {
-            bvid = idP
-        } else {
-			throw VideoGetError.cantFindIdForDM
-        }
-        
-        var r: DataRequest
-        if aid != -1 {
-            r = AF.request("https://api.bilibili.com/x/web-interface/view?aid=\(aid)")
-        } else if bvid != "" {
-            r = AF.request("https://api.bilibili.com/x/web-interface/view?bvid=\(bvid)")
-        } else {
-			throw VideoGetError.cantFindIdForDM
-        }
-		
-		let data = try await r.serializingData().value
-		
-		let json: JSONObject = try JSONParser.JSONObjectWithData(data)
-		
-		if let collection: BilibiliVideoCollection = try json.value(for: "data.ugc_season"), collection.episodes.count > 0 {
-			return collection.episodes
-		} else {
-			var infos: [BiliVideoSelector] = try json.value(for: "data.pages")
-			let bvid: String = try json.value(for: "data.bvid")
-			
-			if infos.count == 1 {
-				infos[0].title = try json.value(for: "data.title")
-			}
-			infos.enumerated().forEach {
-				infos[$0.offset].bvid = bvid
-			}
-			return [("", infos)]
-		}
+        let data = try await AF.request("https://api.bilibili.com/x/player/videoshot?aid=\(aid)&index=1").serializingData().value
+        let json: JSONObject = try JSONParser.JSONObjectWithData(data)
+        return try BilibiliPvideo(object: json)
     }
 }
-
-
 
 struct BilibiliCard: Unmarshaling, Sendable, Hashable {
     var aid: Int = 0
@@ -401,115 +320,6 @@ struct BilibiliPvideo: Unmarshaling, Sendable, Hashable {
     }
 }
 
-protocol BilibiliVideoSelector: VideoSelector {
-    var bvid: String { get set }
-    var duration: Int { get set }
-}
-
-struct BiliVideoSelector: Unmarshaling, BilibiliVideoSelector {
-    var url: String = ""
-    var isLiving: Bool = false
-    
-    var bvid = ""
-    var isCollection = false
-    
-    // epid
-    let id: String
-    var index: Int
-    let part: String
-    var duration: Int
-    var title: String
-    let longTitle: String
-    let coverUrl: URL?
-//    let badge: Badge?
-    let site: SupportSites
-    
-    struct Badge {
-        let badge: String
-        let badgeColor: NSColor
-        let badgeType: Int
-    }
-    
-    init(object: MarshaledObject) throws {
-        let cid: Int = try object.value(for: "cid")
-        id = "\(cid)"
-        
-        if let pic: String = try? object.value(for: "arc.pic") {
-            coverUrl = .init(string: pic)
-            duration = (try? object.value(for: "arc.duration")) ?? 0
-            bvid = try object.value(for: "bvid")
-            index = 0
-            title = try object.value(for: "title")
-            isCollection = true
-            part = ""
-        } else {
-            index = try object.value(for: "page")
-            part = try object.value(for: "part")
-            duration = (try? object.value(for: "duration")) ?? 0
-            title = part
-            coverUrl = nil
-    //        badge = nil
-        }
-        longTitle = ""
-        site = .bilibili
-    }
-    
-	init(ep: BangumiEpList.BangumiEp) {
-        id = "\(ep.id)"
-        index = -1
-        part = ""
-        duration = 0
-        title = ep.title
-        longTitle = ep.longTitle
-        coverUrl = nil
-//        ep.badgeColor
-//        badge = .init(badge: ep.badge,
-//                      badgeColor: .red,
-//                      badgeType: ep.badgeType)
-        site = .bangumi
-    }
-}
-
-struct BilibiliVideoCollection: Unmarshaling {
-    let id: Int
-    let title: String
-    let cover: URL?
-    let mid: Int
-    let epCount: Int
-    let isPaySeason: Bool
-    let episodes: [(String, [BiliVideoSelector])]
-    
-    init(object: MarshaledObject) throws {
-        id = try object.value(for: "id")
-        title = try object.value(for: "title")
-        cover = .init(string: try object.value(for: "cover"))
-        mid = try object.value(for: "mid")
-        epCount = try object.value(for: "ep_count")
-        isPaySeason = try object.value(for: "is_pay_season")
-        
-        let s: [Section] = try object.value(for: "sections")
-        episodes = s.map {
-            ($0.title, $0.episodes)
-        }
-    }
-    
-    struct Section: Unmarshaling {
-        let id: Int
-        let title: String
-        let episodes: [BiliVideoSelector]
-        
-        init(object: MarshaledObject) throws {
-            id = try object.value(for: "id")
-            title = try object.value(for: "title")
-            var eps: [BiliVideoSelector] = try object.value(for: "episodes")
-            eps.enumerated().forEach {
-                eps[$0.offset].index = $0.offset + 1
-            }
-            episodes = eps
-        }
-    }
-}
-
 struct BilibiliUrl {
     var p = 1
     var id = ""
@@ -541,13 +351,13 @@ struct BilibiliUrl {
     
     init?(url: String) {
         guard url != "",
-              let u = URL(string: url),
-              u.host == "www.bilibili.com" || u.host == "bilibili.com",
+              let comps = URLComponents(string: url),
+              SupportSites.isBilibiliHost(comps.host),
               let uc = URLComponents(string: url) else {
                   return nil
               }
         
-        let pcs = u.pathComponents
+        let pcs = comps.path.split(separator: "/").map(String.init)
         
         guard let id = pcs.first(where: {
             $0.starts(with: "av")
@@ -573,4 +383,110 @@ struct BilibiliUrl {
         p = Int(pStr) ?? 1
     }
     
+}
+
+struct BilibiliPlayInfo: Unmarshaling {
+    let dash: BilibiliDash
+    var qualityDescription = [Int: String]()
+    
+    struct Durl: Unmarshaling {
+        let url: String
+        let backupUrls: [String]
+        let length: Int
+        init(object: MarshaledObject) throws {
+            url = try object.value(for: "url")
+            let urls: [String]? = try object.value(for: "backup_url")
+            backupUrls = urls ?? []
+            length = try object.value(for: "length")
+        }
+    }
+    
+    init(object: MarshaledObject) throws {
+        dash = try object.value(for: "dash")
+        
+        let acceptQuality: [Int] = try object.value(for: "accept_quality")
+        let acceptDescription: [String] = try object.value(for: "accept_description")
+        
+        var descriptionDic = [Int: String]()
+        acceptQuality.enumerated().forEach {
+            descriptionDic[$0.element] = acceptDescription[$0.offset]
+        }
+        
+        qualityDescription = descriptionDic
+    }
+    
+    func write(to yougetJson: YouGetJSON) -> YouGetJSON {
+        var yougetJson = yougetJson
+        yougetJson.duration = dash.duration
+        yougetJson.audio = dash.preferAudio()?.url ?? ""
+        
+        qualityDescription.forEach {
+            let id = $0.key
+            guard let video = dash.preferVideo(id) else {
+                var s = Stream(url: "")
+                s.quality = id
+                yougetJson.streams[$0.value] = s
+                return
+            }
+            
+            var stream = Stream(url: video.url)
+            stream.src = video.backupUrl
+            stream.quality = $0.key
+            stream.dashContent = dash.dashContent($0.key)
+            yougetJson.streams[$0.value] = stream
+        }
+        
+        return yougetJson
+    }
+}
+
+struct BilibiliSimplePlayInfo: Unmarshaling {
+    let duration: Int
+    let descriptions: [Int: String]
+    let quality: Int
+    let durl: [BilibiliPlayInfo.Durl]
+    
+    init(object: MarshaledObject) throws {
+        let acceptQuality: [Int] = try object.value(for: "accept_quality")
+        let acceptDescription: [String] = try object.value(for: "accept_description")
+        
+        var descriptionDic = [Int: String]()
+        acceptQuality.enumerated().forEach {
+            descriptionDic[$0.element] = acceptDescription[$0.offset]
+        }
+        descriptions = descriptionDic
+        
+        quality = try object.value(for: "quality")
+        durl = try object.value(for: "durl")
+        let timelength: Int = try object.value(for: "timelength")
+        duration = Int(timelength / 1000)
+    }
+    
+    func write(to yougetJson: YouGetJSON) -> YouGetJSON {
+        var yougetJson = yougetJson
+        yougetJson.duration = duration
+        var dic = descriptions
+        if yougetJson.streams.count == 0 {
+            dic = dic.filter {
+                $0.key <= quality
+            }
+        }
+        
+        dic.forEach {
+            var stream = yougetJson.streams[$0.value] ?? Stream(url: "")
+            if $0.key == quality,
+                let durl = durl.first {
+                var urls = durl.backupUrls
+                urls.append(durl.url)
+                urls = MBGA.update(urls)
+                
+                stream.url = urls.removeFirst()
+                stream.src = urls
+            }
+            stream.quality = $0.key
+            yougetJson.streams[$0.value] = stream
+        }
+        
+        return yougetJson
+    }
 }

@@ -10,7 +10,7 @@ import Cocoa
 import Alamofire
 import Marshal
 import CommonCrypto
-@preconcurrency import JavaScriptCore
+import JavaScriptCore
 import SwiftSoup
 
 actor VideoDecoder {
@@ -18,9 +18,8 @@ actor VideoDecoder {
     lazy var huya = Huya()
     lazy var douyu = Douyu()
     lazy var cc163 = CC163()
-    lazy var biliLive = BiliLive()
-    lazy var bilibili = Bilibili()
-    lazy var qqLive = QQLive()
+    let bilibili = Bilibili.shared
+    lazy var qieTV = QieTV()
 	
 	let enableDash = false
     
@@ -30,6 +29,11 @@ actor VideoDecoder {
         
         switch site {
         case .bilibili, .bangumi:
+            if url.contains("/festival/"),
+               let comps = URLComponents(string: url),
+               let bvid = comps.queryItems?.first(where: { $0.name == "bvid" })?.value {
+                return "https://www.bilibili.com/video/\(bvid)"
+            }
             return BilibiliUrl(url: url)!.fUrl
         case .b23:
 			let res = await AF.request(url).serializingData().response
@@ -46,19 +50,19 @@ actor VideoDecoder {
     func decodeUrl(_ url: String) async throws -> YouGetJSON {
         switch SupportSites(url: url) {
         case .biliLive:
-			try await biliLive.decodeUrl(url)
+			try await bilibili.live.decodeUrl(url)
         case .douyu:
 			try await douyu.decodeUrl(url)
         case .huya:
 			try await huya.decodeUrl(url)
         case .bilibili, .bangumi:
-			try await bilibili.decodeUrl(url)
+            try await bilibili.video.decodeUrl(url)
         case .cc163:
 			try await cc163.decodeUrl(url)
         case .douyin:
 			try await douyin.decodeUrl(url)
-        case .qqLive:
-			try await qqLive.decodeUrl(url)
+        case .qieTV:
+			try await qieTV.decodeUrl(url)
         default:
             throw VideoGetError.notSupported
         }
@@ -68,19 +72,19 @@ actor VideoDecoder {
         let site = SupportSites(url: url)
         switch site {
         case .biliLive:
-			return try await biliLive.liveInfo(url)
+			return try await bilibili.live.liveInfo(url)
         case .douyu:
 			return try await douyu.liveInfo(url)
         case .huya:
 			return try await huya.liveInfo(url)
         case .bilibili, .bangumi:
-			return try await bilibili.liveInfo(url)
+            return try await bilibili.video.liveInfo(url)
         case .cc163:
 			return try await cc163.liveInfo(url)
         case .douyin:
 			return try await douyin.liveInfo(url)
-        case .qqLive:
-			return try await qqLive.liveInfo(url)
+        case .qieTV:
+			return try await qieTV.liveInfo(url)
         default:
             if checkSupport {
                 throw VideoGetError.notSupported
@@ -137,7 +141,7 @@ actor VideoDecoder {
 			}
 			
 			let qn = stream.quality
-            let json = try await bilibili.biliShare.bilibiliPlayUrl(yougetJson: json, json.site == .bangumi, qn)
+            let json = try await Bilibili.shared.bilibiliPlayUrl(yougetJson: json, json.site == .bangumi, qn)
 			return await registerDash(json)
 		case .biliLive:
 			guard let stream = json.streams[key],
@@ -150,7 +154,7 @@ actor VideoDecoder {
 			   url != "" {
 				return json
 			} else {
-				var re = try await biliLive.getBiliLiveJSON(json, qn, with: .roomPlayInfo)
+				var re = try await bilibili.live.getBiliLiveJSON(json, qn, with: .roomPlayInfo)
 				
 				func results() -> YouGetJSON? {
 					if let stream = re.streams[key],
@@ -166,7 +170,7 @@ actor VideoDecoder {
 					return re
 				}
 				
-				re = try await biliLive.getBiliLiveJSON(json, qn, with: .playUrl)
+				re = try await bilibili.live.getBiliLiveJSON(json, qn, with: .playUrl)
 				
 				if let re = results() {
 					return re
