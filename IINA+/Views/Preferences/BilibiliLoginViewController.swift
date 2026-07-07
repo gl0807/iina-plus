@@ -97,7 +97,6 @@ document.getElementsByClassName("v-navbar__back")[0].remove();
 				HTTPCookieStorage.shared.setCookie($0)
 			}
 			
-			let bilibili = await Processes.shared.videoDecoder.bilibili
 			let isLogin = try await Bilibili.shared.isLogin()
 			
 			Log("islogin \(isLogin.0), \(isLogin.1)")

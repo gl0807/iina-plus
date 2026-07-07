@@ -15,7 +15,9 @@ import CryptoSwift
 actor Bilibili {
     
     static let shared = Bilibili()
-    let bangumi = BiliBangumi()
+    lazy var bangumi = BiliBangumi()
+    lazy var live = BiliLive()
+    lazy var video = BiliVideo()
     
     let bangumiUA = "Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101 Firefox/38.0 Iceweasel/38.2.1"
     let bilibiliUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5.1 Safari/605.1.15"

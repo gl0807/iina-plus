@@ -147,7 +147,7 @@ class OpenFilesViewController: NSViewController {
         }
 		
 		
-		let re = try await videoDecoder.bilibili.bilibiliPrepareID(bUrl.fUrl)
+		let re = try await Bilibili.shared.video.bilibiliPrepareID(bUrl.fUrl)
 		
 		json.id = re.id
 		json.bvid = re.bvid

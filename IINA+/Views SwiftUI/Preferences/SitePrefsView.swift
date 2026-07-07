@@ -72,7 +72,6 @@ struct SitePrefsView: View {
                     Button {
                         Task {
                             do {
-                                let bilibili = await Processes.shared.videoDecoder.bilibili
                                 try await Bilibili.shared.logout()
                                 initStatus()
                             } catch let error {
@@ -148,7 +147,6 @@ struct SitePrefsView: View {
         biliStatus = .loading
         Task {
             do {
-                let bilibili = await Processes.shared.videoDecoder.bilibili
                 let re = try await Bilibili.shared.isLogin()
                 biliStatus = re.0 ? .loggedIn : .loggedOut
                 biliUserName = re.1

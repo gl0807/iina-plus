@@ -149,7 +149,7 @@ class MainViewController: NSViewController {
         } else if card.videos > 1 {
             Task {
                 do {
-                    let infos = try await Processes.shared.videoDecoder.bilibili.getVideoList("https://www.bilibili.com/video/\(bvid)")
+                    let infos = try await Bilibili.shared.video.getVideoList("https://www.bilibili.com/video/\(bvid)")
                     showSelectVideo(bvid, treeNodes: infos)
                 } catch let error {
                     Log("Get video list error: \(error)")
@@ -545,7 +545,7 @@ class MainViewController: NSViewController {
                    with option: Bool = false) async throws {
      
 		let videoGet = Processes.shared.videoDecoder
-        let bilibili = await Processes.shared.videoDecoder.bilibili
+        let bilibili = await Bilibili.shared.video
         let douyu = await Processes.shared.videoDecoder.douyu
         
 		var str = url
@@ -655,7 +655,7 @@ class MainViewController: NSViewController {
 				showSelectVideo("", treeNodes: [VideoTreeNode(title: "", children: rl.list)], currentItem: rl.list.firstIndex(where: { $0.id == rl.current }) ?? 0)
 			}
 		} else if SupportSites(url: str) == .biliLive {
-			let list = try await videoGet.biliLive.getRoomList(url.absoluteString)
+			let list = try await Bilibili.shared.live.getRoomList(url.absoluteString)
 			if list.1.count == 0 || list.1.count == 1 {
 				try await decodeUrl()
 			} else {

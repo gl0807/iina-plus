@@ -18,8 +18,7 @@ actor VideoDecoder {
     lazy var huya = Huya()
     lazy var douyu = Douyu()
     lazy var cc163 = CC163()
-    lazy var biliLive = BiliLive()
-    lazy var bilibili = BiliVideo()
+    let bilibili = Bilibili.shared
     lazy var qieTV = QieTV()
 	
 	let enableDash = false
@@ -51,13 +50,13 @@ actor VideoDecoder {
     func decodeUrl(_ url: String) async throws -> YouGetJSON {
         switch SupportSites(url: url) {
         case .biliLive:
-			try await biliLive.decodeUrl(url)
+			try await bilibili.live.decodeUrl(url)
         case .douyu:
 			try await douyu.decodeUrl(url)
         case .huya:
 			try await huya.decodeUrl(url)
         case .bilibili, .bangumi:
-			try await bilibili.decodeUrl(url)
+            try await bilibili.video.decodeUrl(url)
         case .cc163:
 			try await cc163.decodeUrl(url)
         case .douyin:
@@ -73,13 +72,13 @@ actor VideoDecoder {
         let site = SupportSites(url: url)
         switch site {
         case .biliLive:
-			return try await biliLive.liveInfo(url)
+			return try await bilibili.live.liveInfo(url)
         case .douyu:
 			return try await douyu.liveInfo(url)
         case .huya:
 			return try await huya.liveInfo(url)
         case .bilibili, .bangumi:
-			return try await bilibili.liveInfo(url)
+            return try await bilibili.video.liveInfo(url)
         case .cc163:
 			return try await cc163.liveInfo(url)
         case .douyin:
@@ -155,7 +154,7 @@ actor VideoDecoder {
 			   url != "" {
 				return json
 			} else {
-				var re = try await biliLive.getBiliLiveJSON(json, qn, with: .roomPlayInfo)
+				var re = try await bilibili.live.getBiliLiveJSON(json, qn, with: .roomPlayInfo)
 				
 				func results() -> YouGetJSON? {
 					if let stream = re.streams[key],
@@ -171,7 +170,7 @@ actor VideoDecoder {
 					return re
 				}
 				
-				re = try await biliLive.getBiliLiveJSON(json, qn, with: .playUrl)
+				re = try await bilibili.live.getBiliLiveJSON(json, qn, with: .playUrl)
 				
 				if let re = results() {
 					return re
