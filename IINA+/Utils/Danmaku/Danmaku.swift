@@ -32,6 +32,7 @@ class Danmaku: NSObject {
     var delegate: DanmakuDelegate?
     
     private var heartBeatCount = 0
+    private var eventLoopTask: Task<Void, Never>?
     
     let biliLiveServer = URL(string: "wss://broadcastlv.chat.bilibili.com:443/sub")
 	var biliLiveIDs = (rid: "", token: "", uid: 1)
@@ -100,6 +101,7 @@ class Danmaku: NSObject {
     
     func stop() {
 		Log("Stop Danmaku")
+        eventLoopTask?.cancel()
 		
         Task { await socket?.close() }
         socket = nil
@@ -290,34 +292,38 @@ class Danmaku: NSObject {
 
 	@MainActor
 	private func runEventLoop(_ ws: WebSocketClient, request: URLRequest) async {
+		eventLoopTask?.cancel()
 		await socket?.close()
+		_ = await eventLoopTask?.result
 		socket = ws
-		for await event in await ws.open(request) {
-			switch event {
-			case .didOpen:
-				await handleWebSocketOpen()
-			case .message(let data):
-				handleWebSocketMessage(data)
-			case .close(_, let reason, _):
-				Log("webSocketdidClose \(reason ?? "")")
-				switch liveSite {
-				case .biliLive:
-					stopHeartbeat()
-				case .douyin:
-					socketClosed = true
-				default:
-					break
+		eventLoopTask = Task { @MainActor in
+			for await event in await ws.open(request) {
+				switch event {
+				case .didOpen:
+					await handleWebSocketOpen()
+				case .message(let data):
+					handleWebSocketMessage(data)
+				case .close(_, let reason, _):
+					Log("webSocketdidClose \(reason ?? "")")
+					switch liveSite {
+					case .biliLive:
+						stopHeartbeat()
+					case .douyin:
+						socketClosed = true
+					default:
+						break
+					}
+					delegate?.send(.init(method: .liveDMServer, text: "error"), sender: self)
+				case .error(let desc):
+					Log(desc)
+					switch liveSite {
+					case .douyin:
+						socketClosed = true
+					default:
+						break
+					}
+					delegate?.send(.init(method: .liveDMServer, text: "error"), sender: self)
 				}
-				delegate?.send(.init(method: .liveDMServer, text: "error"), sender: self)
-			case .error(let desc):
-				Log(desc)
-				switch liveSite {
-				case .douyin:
-					socketClosed = true
-				default:
-					break
-				}
-				delegate?.send(.init(method: .liveDMServer, text: "error"), sender: self)
 			}
 		}
 	}
