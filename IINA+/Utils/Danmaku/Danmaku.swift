@@ -221,28 +221,28 @@ class Danmaku: NSObject {
         heartbeatTask?.cancel()
         let interval: Duration = liveSite == .douyin ? .seconds(15) : .seconds(30)
         heartBeatCount = 0
-        heartbeatTask = Task { [weak self] in
+        heartbeatTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: interval)
                 guard let self else { return }
                 do {
-                    switch await self.liveSite {
+                    switch self.liveSite {
                     case .biliLive:
-                        let data = await self.pack(format: "NnnNN", values: [16, 16, 1, 2, 1]) as Data
+                        let data = self.pack(format: "NnnNN", values: [16, 16, 1, 2, 1]) as Data
                         try await self.socket?.send(data: data)
                     case .douyu:
                         let keeplive = "type@=mrkl/"
                         let data = self.douyuSocketFormatter(keeplive)
                         try await self.socket?.send(data: data)
                     case .huya:
-                        let result = await self.huyaJSContext?.evaluateScript("new Uint8Array(sendHeartBeat());")
+                        let result = self.huyaJSContext?.evaluateScript("new Uint8Array(sendHeartBeat());")
                         let data = Data(result?.toArray() as? [UInt8] ?? [])
                         await self.sendMsg(data)
                     case .douyin:
-                        guard await self.socket != nil else { return }
-                        if await self.socketClosed {
+                        guard self.socket != nil else { return }
+                        if self.socketClosed {
                             Log("Reconnect douyin dm")
-                            await self.stop()
+                            self.stop()
                             await self.loadDM()
                             return
                         }
@@ -261,7 +261,7 @@ class Danmaku: NSObject {
                 } catch {
                     if (error as NSError).code == 2134 {
                         Log("Danmaku Error 2134, restart.")
-                        await self.stop()
+                        self.stop()
                         await self.loadDM()
                     } else {
                         Log("Heartbeat error: \(error)")
@@ -303,7 +303,7 @@ class Danmaku: NSObject {
 				case .didOpen:
 					await handleWebSocketOpen()
 				case .message(let data):
-					await handleWebSocketMessage(data)
+					handleWebSocketMessage(data)
 				case .close(_, let reason, _):
 					Log("webSocketdidClose \(reason ?? "")")
 					switch liveSite {
@@ -420,8 +420,8 @@ new Uint8Array(sendRegisterGroups(["live:\(id)", "chat:\(id)"]));
 				}
 			}
 
-			let dms = try? datas.compactMap(decodeBiliLiveDM(_:))
-			if let dms, dms.count > 0 {
+			let dms = datas.compactMap(decodeBiliLiveDM(_:))
+			if !dms.isEmpty {
 				sendDM(.init(method: .sendDM, text: "", dms: dms))
 			}
 		case .huya:
