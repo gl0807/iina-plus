@@ -181,10 +181,12 @@ final class DanmakuSessionManager: DanmakuDelegate, DanmakuWSDelegate {
                 ws.loadXMLDM()
             } else if ws.site != .unsupported {
                 loadNewDanmaku(ws)
+                guard !connectedItems.contains(where: { $0.contextName == ws.contextName && $0.url == ws.url }) else { return }
                 connectedItems.append(ws)
             }
         case .plugin where ![.unsupported, .bangumi, .bilibili, .b23].contains(ws.site):
             loadNewDanmaku(ws)
+            guard !connectedItems.contains(where: { $0.contextName == ws.contextName && $0.url == ws.url }) else { return }
             connectedItems.append(ws)
         default:
             break
