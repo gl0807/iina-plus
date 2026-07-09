@@ -221,6 +221,7 @@ class MainViewController: NSViewController {
     }
     
     @IBAction func openPreferences(_ sender: NSButton) {
+        sender.isHidden = true
         WindowManger.shared.showSettings()
     }
     

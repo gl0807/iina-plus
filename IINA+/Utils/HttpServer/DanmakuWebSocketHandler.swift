@@ -101,7 +101,7 @@ actor WebSocketSession {
 
 @MainActor
 final class DanmakuSessionManager: DanmakuDelegate, DanmakuWSDelegate {
-    private var connectedItems = [DanmakuWS]()
+    private var connectedItems: [String: DanmakuWS] = [:]
     private var danmakus = [Danmaku]()
     private var sessions: [String: WebSocketSession] = [:]
 
@@ -114,8 +114,8 @@ final class DanmakuSessionManager: DanmakuDelegate, DanmakuWSDelegate {
     func sessionEnded(_ session: WebSocketSession) {
         let contextName = session.contextName
         sessions.removeValue(forKey: contextName)
-        connectedItems.removeAll { $0.contextName == contextName }
-        let activeURLs = Set(connectedItems.map { $0.url })
+        connectedItems = connectedItems.filter { $0.value.contextName != contextName }
+        let activeURLs = Set(connectedItems.values.map { $0.url })
         danmakus.removeAll { dm in
             let remove = !activeURLs.contains(dm.url)
             if remove {
@@ -181,13 +181,11 @@ final class DanmakuSessionManager: DanmakuDelegate, DanmakuWSDelegate {
                 ws.loadXMLDM()
             } else if ws.site != .unsupported {
                 loadNewDanmaku(ws)
-                guard !connectedItems.contains(where: { $0.contextName == ws.contextName && $0.url == ws.url }) else { return }
-                connectedItems.append(ws)
+                connectedItems["\(ws.contextName):\(ws.url)"] = ws
             }
         case .plugin where ![.unsupported, .bangumi, .bilibili, .b23].contains(ws.site):
             loadNewDanmaku(ws)
-            guard !connectedItems.contains(where: { $0.contextName == ws.contextName && $0.url == ws.url }) else { return }
-            connectedItems.append(ws)
+            connectedItems["\(ws.contextName):\(ws.url)"] = ws
         default:
             break
         }
@@ -196,7 +194,7 @@ final class DanmakuSessionManager: DanmakuDelegate, DanmakuWSDelegate {
     // MARK: - DanmakuDelegate
 
     func send(_ event: DanmakuEvent, sender: Danmaku) {
-        connectedItems.filter { $0.url == sender.url }.forEach {
+        connectedItems.values.filter { $0.url == sender.url }.forEach {
             $0.send(event)
         }
     }
